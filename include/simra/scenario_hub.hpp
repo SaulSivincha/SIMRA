@@ -12,7 +12,6 @@ class ScenarioHub final : public QWidget {
 
 public:
   explicit ScenarioHub(std::function<void(int, bool)> openPreset,
-                       std::function<void()> openFile,
                        QWidget *parent = nullptr);
   void preview(const Scenario &scenario);
 };

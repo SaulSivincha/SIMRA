@@ -97,8 +97,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         loadPreset();
         setEditing(edit);
         pages_->setCurrentWidget(workspace_);
-      },
-      [this] { openScenario(); });
+      });
   pages_->addWidget(hub_);
   auto *root = new QVBoxLayout(workspace_);
   auto *toolbar = new QHBoxLayout;

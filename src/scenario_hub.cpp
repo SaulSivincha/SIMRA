@@ -9,7 +9,7 @@
 
 namespace simra {
 ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
-                         std::function<void()> openFile, QWidget *parent)
+                         QWidget *parent)
     : QWidget(parent) {
   auto *page = new QVBoxLayout(this);
   page->setContentsMargins(36, 30, 36, 30);
@@ -21,6 +21,12 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
       new QLabel("Simulador interactivo multihilo de robots de almacén");
   subtitle->setStyleSheet("font-size:19px;color:#9CB1CC;");
   page->addWidget(subtitle);
+  auto *instruction = new QLabel(
+      "Elige una demostración. Cada una muestra un concepto distinto de "
+      "programación concurrente y objetos.");
+  instruction->setStyleSheet("color:#A8B8CE;");
+  instruction->setWordWrap(true);
+  page->addWidget(instruction);
   auto *content = new QHBoxLayout;
   content->setSpacing(24);
   auto *options = new QVBoxLayout;
@@ -51,16 +57,6 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
     cardLayout->addWidget(text);
     options->addWidget(card);
   }
-  auto *actions = new QHBoxLayout;
-  auto *edit = new QPushButton("Editar plantilla");
-  edit->setObjectName("openEditor");
-  connect(edit, &QPushButton::clicked, this,
-          [openPreset] { openPreset(0, true); });
-  actions->addWidget(edit);
-  auto *open = new QPushButton("Abrir JSON");
-  connect(open, &QPushButton::clicked, this, std::move(openFile));
-  actions->addWidget(open);
-  options->addLayout(actions);
   options->addStretch();
   content->addLayout(options, 4);
 
@@ -77,7 +73,7 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
   page->addLayout(content, 1);
 }
 void ScenarioHub::preview(const Scenario &scenario) {
-  description_->setText(QString("Plano de plantilla · %1 × %2 · %3 robots")
+  description_->setText(QString("Vista previa · %1 × %2 · %3 robots")
                             .arg(scenario.width)
                             .arg(scenario.height)
                             .arg(scenario.robots.size()));

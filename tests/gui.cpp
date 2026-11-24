@@ -17,10 +17,11 @@ int main(int argc, char **argv) {
     CHECK(result);
     return result;
   };
-  auto *openEditor = button("openEditor");
-  CHECK(openEditor->isVisible());
-  QTest::mouseClick(openEditor, Qt::LeftButton);
+  auto *basicDemo = button("preset0");
+  CHECK(basicDemo->isVisible());
+  QTest::mouseClick(basicDemo, Qt::LeftButton);
   auto *edit = button("editScenario");
+  QTest::mouseClick(edit, Qt::LeftButton);
   CHECK(edit->isVisible() && edit->text() == "Cerrar editor");
   auto *tool = window.findChild<QComboBox *>("editorTool");
   auto *inspector = window.findChild<QLabel *>("cellInspector");
