@@ -1,6 +1,6 @@
+#include "check.hpp"
 #include "simra/core.hpp"
 #include <barrier>
-#include <cassert>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -22,34 +22,52 @@ int main() {
   sync.arrive_and_wait();
   one.join();
   two.join();
-  assert(a != b);
+  CHECK(a != b);
   auto view = collision.snapshot();
-  assert(view.metrics.distance == 1);
-  assert(view.metrics.conflicts == 1);
+  CHECK(view.metrics.distance == 1);
+  CHECK(view.metrics.conflicts == 1);
+  auto reciprocal = s;
+  reciprocal.robots[1].position = {1, 0};
+  reciprocal.validate();
+  WarehouseState waitCycle(reciprocal);
+  CHECK(!waitCycle.move("R01", {1, 0}));
+  CHECK(!waitCycle.move("R02", {0, 0}));
+  CHECK(waitCycle.snapshot().metrics.cycles >= 1);
   auto charging = s;
   for (auto &st : charging.stations)
     if (st.id == "C01")
       st.position = {1, 0};
   charging.validate();
   WarehouseState charger(charging);
-  assert(charger.reserveCharger("R01"));
-  assert(!charger.reserveCharger("R02"));
-  assert(charger.move("R01", {1, 0}));
-  assert(charger.charge("R01"));
-  assert(charger.move("R01", {1, 1}));
-  assert(charger.reserveCharger("R02"));
+  CHECK(charger.reserveCharger("R01"));
+  CHECK(!charger.reserveCharger("R02"));
+  CHECK(charger.move("R01", {1, 0}));
+  CHECK(charger.charge("R01"));
+  CHECK(charger.move("R01", {1, 1}));
+  CHECK(charger.reserveCharger("R02"));
+  auto serving = s;
+  serving.robots[0].position = {0, 4};
+  serving.validate();
+  WarehouseState service(serving);
+  CHECK(service.reserveService("R01", "P01"));
+  CHECK(service.snapshot().stationReservations.size() == 1);
+  CHECK(!service.reserveService("R02", "P01"));
+  CHECK(service.move("R01", {0, 5}));
+  CHECK(service.move("R01", {1, 5}));
+  CHECK(service.snapshot().stationReservations.empty());
+  CHECK(service.reserveService("R02", "P01"));
   SimulationEngine engine(s);
   DeliveryOrderCreator delivery;
   RestockOrderCreator restock;
-  assert(engine.state().addOrder(delivery.create("O1", "K01", "D01", 2)));
-  assert(engine.state().addOrder(restock.create("O2", "K_IN", "S04", 1)));
+  CHECK(engine.state().addOrder(delivery.create("O1", "K01", "D01", 2)));
+  CHECK(engine.state().addOrder(restock.create("O2", "K_IN", "S04", 1)));
   engine.start();
   engine.pause(true);
   auto before = engine.state().snapshot().metrics.distance;
   auto activeBefore = engine.state().snapshot().metrics.activeMs;
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
-  assert(engine.state().snapshot().metrics.distance == before);
-  assert(engine.state().snapshot().metrics.activeMs - activeBefore < 50);
+  CHECK(engine.state().snapshot().metrics.distance == before);
+  CHECK(engine.state().snapshot().metrics.activeMs - activeBefore < 50);
   engine.pause(false);
   auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(23);
   while (std::chrono::steady_clock::now() < deadline &&
@@ -66,12 +84,12 @@ int main() {
     return 1;
   }
   for (auto &o : result.orders)
-    assert(o.status == OrderStatus::Completed);
+    CHECK(o.status == OrderStatus::Completed);
   for (auto &c : result.cargo) {
     if (c.id == "K01")
-      assert(c.locationId == "DELIVERED");
+      CHECK(c.locationId == "DELIVERED");
     if (c.id == "K_IN")
-      assert(c.locationId == "S04");
+      CHECK(c.locationId == "S04");
   }
   auto generated = s;
   generated.generationIntervalMs = 100;
@@ -83,7 +101,18 @@ int main() {
          automatic.state().snapshot().orders.empty())
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   automatic.stop();
-  assert(!automatic.state().snapshot().orders.empty());
+  CHECK(!automatic.state().snapshot().orders.empty());
+  auto energyScenario =
+      loadScenario(std::string(SIMRA_SOURCE_DIR) + "/scenarios/charging.json");
+  SimulationEngine energy(energyScenario);
+  energy.start();
+  auto chargeDeadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (std::chrono::steady_clock::now() < chargeDeadline &&
+         energy.state().snapshot().metrics.recharges < 2)
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  energy.stop();
+  CHECK(energy.state().snapshot().metrics.recharges >= 2);
   std::cout << "two concurrent orders completed; distance="
             << result.metrics.distance
             << " conflicts=" << result.metrics.conflicts << "\n";

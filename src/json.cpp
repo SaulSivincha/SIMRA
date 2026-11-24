@@ -1,4 +1,4 @@
-#include "simra/core.hpp"
+#include "simra/json.hpp"
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -11,6 +11,12 @@ static Position position(QJsonValue v) {
   return {o.value("x").toInt(-1), o.value("y").toInt(-1)};
 }
 static QJsonObject jsonPosition(Position p) { return {{"x", p.x}, {"y", p.y}}; }
+static QJsonArray entries(const QJsonObject &root, const char *key) {
+  auto value = root.value(key);
+  if (!value.isUndefined() && !value.isArray())
+    throw std::runtime_error(std::string(key) + " debe ser una lista");
+  return value.toArray();
+}
 Scenario loadScenario(const std::string &filename) {
   QFile file(QString::fromStdString(filename));
   if (!file.open(QIODevice::ReadOnly))
@@ -27,16 +33,17 @@ Scenario loadScenario(const std::string &filename) {
   s.width = root.value("width").toInt();
   s.height = root.value("height").toInt();
   s.seed = root.value("seed").toInt(42);
-  s.generationIntervalMs = root.value("generationIntervalMs").toInt(1800);
-  for (auto v : root.value("shelves").toArray()) {
+  if (root.contains("generationIntervalMs"))
+    s.generationIntervalMs = root.value("generationIntervalMs").toInt(-1);
+  for (auto v : entries(root, "shelves")) {
     auto o = v.toObject();
     s.shelves.push_back({o.value("id").toString().toStdString(),
                          position(o.value("position")),
                          o.value("capacity").toInt()});
   }
-  for (auto v : root.value("obstacles").toArray())
+  for (auto v : entries(root, "obstacles"))
     s.obstacles.push_back(position(v));
-  for (auto v : root.value("robots").toArray()) {
+  for (auto v : entries(root, "robots")) {
     auto o = v.toObject();
     auto type = o.value("type").toString();
     if (type != "LIGHT" && type != "HEAVY")
@@ -47,8 +54,10 @@ Scenario loadScenario(const std::string &filename) {
                         o.value("battery").toInt(-1)});
   }
   auto stations = [&](const char *key, Terrain fallback) {
-    for (auto v : root.value(key).toArray()) {
+    for (auto v : entries(root, key)) {
       auto o = v.toObject();
+      if (o.contains("capacity") && o.value("capacity").toInt(-1) != 1)
+        throw std::runtime_error("La capacidad de una estación debe ser 1");
       auto type = o.value("type").toString();
       auto kind = fallback;
       if (fallback == Terrain::ChargeLight) {
@@ -64,11 +73,19 @@ Scenario loadScenario(const std::string &filename) {
   stations("chargingStations", Terrain::ChargeLight);
   stations("deliveryStations", Terrain::Delivery);
   stations("receptionStations", Terrain::Reception);
-  for (auto v : root.value("cargo").toArray()) {
+  for (auto v : entries(root, "cargo")) {
     auto o = v.toObject();
-    s.cargo.push_back(
-        {o.value("id").toString().toStdString(), o.value("weightKg").toInt(),
-         o.value("location").toObject().value("id").toString().toStdString()});
+    auto location = o.value("location").toObject();
+    auto locationId = location.value("id").toString().toStdString();
+    if (location.contains("type")) {
+      bool shelf =
+          std::any_of(s.shelves.begin(), s.shelves.end(),
+                      [&](auto &item) { return item.id == locationId; });
+      if (location.value("type").toString() != (shelf ? "SHELF" : "RECEPTION"))
+        throw std::runtime_error("El tipo de ubicación no coincide con su ID");
+    }
+    s.cargo.push_back({o.value("id").toString().toStdString(),
+                       o.value("weightKg").toInt(), std::move(locationId)});
   }
   s.validate();
   return s;
@@ -126,8 +143,8 @@ void saveScenario(const Scenario &s, const std::string &filename) {
   QSaveFile file(QString::fromStdString(filename));
   if (!file.open(QIODevice::WriteOnly))
     throw std::runtime_error("cannot save scenario");
-  file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-  if (!file.commit())
+  const auto payload = QJsonDocument(root).toJson(QJsonDocument::Indented);
+  if (file.write(payload) != payload.size() || !file.commit())
     throw std::runtime_error("save failed");
 }
 } // namespace simra

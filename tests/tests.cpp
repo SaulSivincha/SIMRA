@@ -1,6 +1,8 @@
+#include "check.hpp"
 #include "simra/core.hpp"
+#include "simra/path_planner.hpp"
+#include "simra/scenario_editor.hpp"
 #include <barrier>
-#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -8,39 +10,70 @@
 using namespace simra;
 int main() {
   Position a{1, 2};
-  assert((a + Position{2, 3} == Position{3, 5}));
+  CHECK((a + Position{2, 3} == Position{3, 5}));
   Matrix<int> grid(8, 8, 0);
-  assert(grid.at({0, 0}) == 0);
+  CHECK(grid.at({0, 0}) == 0);
   bool threw = false;
   try {
     grid.at({8, 0});
   } catch (const std::out_of_range &) {
     threw = true;
   }
-  assert(threw);
+  CHECK(threw);
   Matrix<uint8_t> blocked(8, 8, 0);
-  assert(bfs(blocked, {0, 0}, {0, 0})->empty());
+  CHECK(bfs(blocked, {0, 0}, {0, 0})->empty());
   blocked.at({1, 0}) = 1;
-  assert(bfs(blocked, {0, 0}, {2, 0})->size() == 4);
+  CHECK(bfs(blocked, {0, 0}, {2, 0})->size() == 4);
   for (int y = 0; y < 8; ++y)
     blocked.at({1, y}) = 1;
-  assert(!bfs(blocked, {0, 0}, {2, 0}));
+  CHECK(!bfs(blocked, {0, 0}, {2, 0}));
   LightEquipmentFactory light;
   IndustrialEquipmentFactory heavy;
-  assert(light.createRobot()->capacity() == 10);
-  assert(heavy.createRobot()->capacity() == 50);
-  assert(light.createChargingStation()->compatible(*light.createRobot()));
-  assert(!light.createChargingStation()->compatible(*heavy.createRobot()));
+  CHECK(light.createRobot()->capacity() == 10);
+  CHECK(heavy.createRobot()->capacity() == 50);
+  CHECK(light.createRobot()->stepMs() == 300);
+  CHECK(heavy.createRobot()->stepMs() == 500);
+  CHECK(light.createChargingStation()->compatible(*light.createRobot()));
+  CHECK(!light.createChargingStation()->compatible(*heavy.createRobot()));
   DeliveryOrderCreator delivery;
   RestockOrderCreator restock;
-  assert(delivery.create("O1", "K1", "D1", 1)->kind() == OrderKind::Delivery);
-  assert(restock.create("O2", "K2", "S1", 1)->kind() == OrderKind::Restock);
+  CHECK(delivery.create("O1", "K1", "D1", 1)->kind() == OrderKind::Delivery);
+  CHECK(restock.create("O2", "K2", "S1", 1)->kind() == OrderKind::Restock);
   BasicScenarioBuilder builder;
   ScenarioDirector director;
   auto scenario = director.construct(builder, "test");
+  auto plan = planTask(scenario, LightRobot{}, {0, 0}, {2, 2}, {13, 2});
+  CHECK(plan);
+  CHECK(distance(plan->stops.pickup, {2, 2}) == 1);
+  CHECK((plan->stops.destination == Position{13, 2}));
+  auto remaining =
+      remainingTaskEnergy(scenario, LightRobot{}, {0, 0}, plan->stops, false);
+  CHECK(remaining && *remaining + 1 == plan->energy);
   auto clone = scenario.clone();
   clone->robots[0].battery = 20;
-  assert(scenario.robots[0].battery == 100);
+  CHECK(scenario.robots[0].battery == 100);
+  auto edited = scenario;
+  ScenarioEditor::place(edited, {1, 1}, EditorTool::Shelf);
+  auto shelfId = edited.shelves.back().id;
+  ScenarioEditor::setShelfCapacity(edited, shelfId, 1);
+  ScenarioEditor::place(edited, {1, 1}, EditorTool::Cargo, 7);
+  CHECK(edited.cargo.back().locationId == shelfId);
+  threw = false;
+  try {
+    ScenarioEditor::place(edited, {1, 1}, EditorTool::Cargo, 7);
+  } catch (const std::invalid_argument &) {
+    threw = true;
+  }
+  CHECK(threw);
+  ScenarioEditor::setRobotBattery(edited, "R01", 80);
+  CHECK(scenario.robots[0].battery == 100);
+  threw = false;
+  try {
+    ScenarioEditor::resize(edited, 8, 8);
+  } catch (const std::invalid_argument &) {
+    threw = true;
+  }
+  CHECK(threw);
   auto invalid = scenario;
   invalid.robots[1].id = invalid.robots[0].id;
   threw = false;
@@ -49,14 +82,14 @@ int main() {
   } catch (const std::invalid_argument &) {
     threw = true;
   }
-  assert(threw);
+  CHECK(threw);
   auto older = delivery.create("OLD", "K1", "D1", 0);
   auto newer = delivery.create("NEW", "K2", "D1", 2);
   older->created -= std::chrono::seconds(90);
-  assert(OrderPriorityComparator{std::chrono::steady_clock::now()}(
-      older.get(), newer.get()));
+  CHECK(OrderPriorityComparator{std::chrono::steady_clock::now()}(older.get(),
+                                                                  newer.get()));
   WarehouseState state(scenario);
-  assert(state.addOrder(delivery.create("O1", "K01", "D01", 1)));
+  CHECK(state.addOrder(delivery.create("O1", "K01", "D01", 1)));
   std::barrier sync(3);
   std::optional<std::string> x, y;
   std::thread t1([&] {
@@ -70,19 +103,36 @@ int main() {
   sync.arrive_and_wait();
   t1.join();
   t2.join();
-  assert(bool(x) != bool(y));
+  CHECK(bool(x) != bool(y));
   auto snapshot = state.snapshot();
-  assert(snapshot.orders[0].status == OrderStatus::Assigned);
+  CHECK(snapshot.orders[0].status == OrderStatus::Assigned);
   ThreadSafeQueue<int> queue;
-  assert(queue.push(4));
-  assert(queue.size() == 1);
-  assert(queue.tryPop() == 4);
-  assert(queue.push(6));
+  CHECK(queue.push(4));
+  CHECK(queue.size() == 1);
+  CHECK(queue.tryPop() == 4);
+  CHECK(queue.push(6));
   queue.close();
-  assert(!queue.push(5));
-  assert(queue.waitPop() == 6);
-  assert(!queue.waitPop());
-  assert(&SimulationLogger::instance() == &SimulationLogger::instance());
+  CHECK(!queue.push(5));
+  CHECK(queue.waitPop() == 6);
+  CHECK(!queue.waitPop());
+  CHECK(&SimulationLogger::instance() == &SimulationLogger::instance());
+  WarehouseState clockState(scenario);
+  clockState.setSpeedPercent(200);
+  CHECK(clockState.speedPercent() == 200);
+  clockState.markStarted();
+  std::this_thread::sleep_for(std::chrono::milliseconds(30));
+  auto clockMetrics = clockState.snapshot().metrics;
+  CHECK(clockMetrics.logicalMs > clockMetrics.activeMs);
+  clockState.pause(true);
+  const auto pausedClock = clockState.snapshot().metrics.logicalMs;
+  std::thread delayed([&] {
+    CHECK(clockState.waitStep(std::chrono::milliseconds(160)));
+    CHECK(clockState.snapshot().metrics.logicalMs >= pausedClock + 160);
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(35));
+  CHECK(clockState.snapshot().metrics.logicalMs == pausedClock);
+  clockState.pause(false);
+  delayed.join();
   auto beforeEvents = SimulationLogger::instance().events().size();
   std::vector<std::thread> writers;
   for (int i = 0; i < 4; ++i)
@@ -92,7 +142,7 @@ int main() {
     });
   for (auto &writer : writers)
     writer.join();
-  assert(SimulationLogger::instance().events().size() == beforeEvents + 80);
+  CHECK(SimulationLogger::instance().events().size() == beforeEvents + 80);
   auto path =
       (std::filesystem::temp_directory_path() /
        ("simra-roundtrip-" +
@@ -106,14 +156,14 @@ int main() {
     loaded.validate();
     saveScenario(loaded, path);
     auto roundtrip = loadScenario(path);
-    assert(roundtrip.robots.size() == loaded.robots.size());
+    CHECK(roundtrip.robots.size() == loaded.robots.size());
   }
   std::filesystem::remove(path);
   SimulationEngine engine(scenario);
   engine.start();
   engine.pause(true);
-  assert(engine.state().snapshot().paused);
+  CHECK(engine.state().snapshot().paused);
   engine.stop();
-  assert(engine.state().snapshot().stopped);
+  CHECK(engine.state().snapshot().stopped);
   std::cout << "SIMRA core tests passed\n";
 }

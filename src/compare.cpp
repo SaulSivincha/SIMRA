@@ -1,4 +1,7 @@
 #include "simra/core.hpp"
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -18,13 +21,30 @@ static Metrics run(Scenario scenario) {
 }
 int main(int argc, char **argv) {
   try {
-    if (argc != 2)
-      throw std::invalid_argument("usage: simra_compare basic.json");
-    auto two = loadScenario(argv[1]);
+    bool json = argc == 3 && std::string(argv[1]) == "--json";
+    if (argc != 2 && !json)
+      throw std::invalid_argument("usage: simra_compare [--json] basic.json");
+    auto two = loadScenario(argv[json ? 2 : 1]);
     auto three = two;
     three.robots.push_back({"R03", RobotKind::Light, {0, 4}, 100});
     three.validate();
     auto a = run(two), b = run(three);
+    if (json) {
+      auto entry = [](int robots, const Metrics &m) {
+        return QJsonObject{
+            {"robots", robots},         {"completed", m.completed},
+            {"conflicts", m.conflicts}, {"distance", m.distance},
+            {"energy", m.energy},       {"activeMs", double(m.activeMs)}};
+      };
+      QJsonObject result{{"seed", two.seed},
+                         {"orderCount", 3},
+                         {"horizonSeconds", 8},
+                         {"runs", QJsonArray{entry(2, a), entry(3, b)}}};
+      std::cout
+          << QJsonDocument(result).toJson(QJsonDocument::Compact).toStdString()
+          << '\n';
+      return 0;
+    }
     std::cout << "Misma carga: O1/K01, O2/K02, O3/K_IN; mismo horizonte: 8 s; "
                  "semilla: "
               << two.seed << "\n";
