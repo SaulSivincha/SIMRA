@@ -25,17 +25,11 @@ En algunos escritorios KDE, la captura sin pantalla requiere `QT_QPA_PLATFORMTHE
 4. Usa **Pausar/Reanudar** para examinar un estado. Vuelve a **Inicio** para elegir otra demostración; la ejecución anterior termina de forma segura.
 
 
-El ejecutable de comparación también se puede usar en terminal:
-
-```bash
-./build/simra_compare scenarios/basic.json
-```
-
 ## Estructura
 
 - `simra_core`: dominio, patrones, planificación BFS, estado compartido, motor y edición de escenarios en C++20.
 - `simra_json`: lectura y guardado de configuraciones, con validación y escritura atómica.
-- `simra_widgets`: inicio, plano del almacén, robots, concurrencia, estadísticas y comparación.
+- `simra_widgets`: inicio, plano del almacén, robots y estadísticas técnicas.
 - `scenarios/`: básico, mixto, congestión y competencia energética.
 - `tests/`: pruebas unitarias y de integración concurrente.
 - `docs/`: arquitectura, requisitos, patrones, concurrencia, pruebas, manual y evidencia.
@@ -44,8 +38,8 @@ La especificación original y los doce PDF del curso se consultaron localmente. 
 
 ## Estado de alcance
 
-P0 tiene núcleo funcional: dos tipos de robot, hilos reales, entrega y reposición, inventario, BFS, ocupación exclusiva, batería/recarga, controles, cinco patrones y pruebas. P1 incluye cuatro escenarios guiados, prioridades con envejecimiento, generación automática, detección de espera mutua, maniobra de cesión, monitor, métricas y comparación controlada por terminal. Las limitaciones exactas están en [docs/limitations.md](docs/limitations.md); P2 queda sin implementar.
+P0 tiene núcleo funcional: dos tipos de robot, hilos reales, entrega y reposición, inventario, BFS, ocupación exclusiva, batería/recarga, controles, cinco patrones y pruebas. P1 incluye cuatro escenarios guiados, prioridades con envejecimiento, generación automática, detección de espera mutua, maniobra de cesión, monitor y métricas técnicas. Las limitaciones exactas están en [docs/limitations.md](docs/limitations.md); P2 queda sin implementar.
 
 ## Capturas
 
-[Inicio](docs/screenshot-home.png) · [Simulación](docs/screenshot-simulation.png) · [Estadísticas](docs/screenshot-statistics.png) · [Comparación](docs/screenshot-comparison.png)
+[Inicio](docs/screenshot-home.png) · [Simulación](docs/screenshot-simulation.png) · [Estadísticas](docs/screenshot-statistics.png)

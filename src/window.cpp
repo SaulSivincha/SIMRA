@@ -1,51 +1,16 @@
 #include "simra/window.hpp"
 #include "simra/scenario_hub.hpp"
-#include <QDateTime>
-#include <QFrame>
 #include <QHBoxLayout>
-#include <QHeaderView>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTabWidget>
-#include <QTableWidget>
-#include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
 
 namespace simra {
-static QString label(RobotStatus s) {
-  switch (s) {
-  case RobotStatus::Idle:
-    return "Disponible";
-  case RobotStatus::ToPickup:
-    return "A recogida";
-  case RobotStatus::ToDelivery:
-    return "A entrega";
-  case RobotStatus::ToCharge:
-    return "A recarga";
-  case RobotStatus::Charging:
-    return "Recargando";
-  case RobotStatus::Waiting:
-    return "Esperando";
-  case RobotStatus::Blocked:
-    return "Bloqueado";
-  case RobotStatus::Stopped:
-    return "Detenido";
-  }
-  return {};
-}
-static QTableWidget *table(QStringList columns) {
-  auto *t = new QTableWidget;
-  t->setColumnCount(columns.size());
-  t->setHorizontalHeaderLabels(columns);
-  t->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-  t->verticalHeader()->hide();
-  t->setEditTriggers(QAbstractItemView::NoEditTriggers);
-  return t;
-}
 static QString scenarioId(int index) {
   switch (index) {
   case 1:
@@ -154,51 +119,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   monitor_->onSelected(
       [this](std::string id) { selectedRobot_ = std::move(id); });
   right->addTab(monitor_, "Robots");
-  auto *concurrencyPage = new QWidget;
-  auto *concurrencyLayout = new QVBoxLayout(concurrencyPage);
-  concurrencySummary_ = new QLabel;
-  concurrencySummary_->setStyleSheet(
-      "color:#93C5FD;font-weight:700;padding:8px;");
-  concurrencyLayout->addWidget(concurrencySummary_);
-  robots_ = table({"Robot", "Estado", "Batería", "Carga", "Espera", "Hilo"});
-  robots_->setObjectName("workerTable");
-  concurrencyLayout->addWidget(robots_, 1);
-  connect(robots_, &QTableWidget::itemSelectionChanged, this, [this] {
-    auto items = robots_->selectedItems();
-    if (!items.empty())
-      selectedRobot_ =
-          robots_->item(items.front()->row(), 0)->text().toStdString();
-  });
-  resources_ = new QLabel;
-  resources_->setWordWrap(true);
-  resources_->setStyleSheet("color:#CBD5E1;padding:8px;");
-  concurrencyLayout->addWidget(resources_);
-  right->addTab(concurrencyPage, "Concurrencia");
   metrics_ = new StatisticsPanel;
+  metrics_->setObjectName("technicalStats");
   right->addTab(metrics_, "Estadísticas");
-  comparison_ = new ComparisonPanel;
-  right->addTab(comparison_, "Comparación");
   split->setSizes({980, 425});
-  auto *activity = new QFrame;
-  activity->setStyleSheet("QFrame{background:#1E293B;border:1px solid #334155;"
-                          "border-radius:8px;} QLabel{border:0;}");
-  activity->setFixedHeight(145);
-  auto *activityLayout = new QHBoxLayout(activity);
-  auto *eventColumn = new QVBoxLayout;
-  auto *eventTitle = new QLabel("EVENTOS EN VIVO");
-  eventTitle->setStyleSheet(
-      "color:#94A3B8;font-weight:700;letter-spacing:1px;");
-  eventColumn->addWidget(eventTitle);
-  events_ = new QTextEdit;
-  events_->setReadOnly(true);
-  events_->document()->setMaximumBlockCount(500);
-  eventColumn->addWidget(events_);
-  activityLayout->addLayout(eventColumn, 3);
-  summary_ = new QLabel;
-  summary_->setMinimumWidth(250);
-  summary_->setAlignment(Qt::AlignCenter);
-  activityLayout->addWidget(summary_, 1);
-  root->addWidget(activity);
   status_ = new QLabel("Listo");
   root->addWidget(status_);
   timer_ = new QTimer(this);
@@ -219,10 +143,12 @@ void MainWindow::loadPreset() {
     engine_.reset();
     selectedRobot_.clear();
     scenario_ = std::move(candidate);
+    nextOrder_ = 1;
     render(Snapshot{scenario_});
     scenarioName_->setText("Escenario · " + scenarioTitle(scenarioIndex_));
     status_->setText("Escenario preparado");
     start_->setEnabled(true);
+    start_->setText("Iniciar demostración");
     pause_->setEnabled(false);
   } catch (const std::exception &e) {
     QMessageBox::warning(this, "Escenario inválido", e.what());
@@ -235,12 +161,13 @@ void MainWindow::startSimulation() {
   }
   try {
     scenario_.validate();
+    nextOrder_ = 1;
     engine_ = std::make_unique<SimulationEngine>(scenario_);
     engine_->state().setSpeedPercent(100);
     engine_->start(false);
     start_->setEnabled(false);
+    start_->setText("Demostración en curso");
     pause_->setEnabled(true);
-    events_->clear();
     status_->setText("Simulación en ejecución");
   } catch (const std::exception &e) {
     engine_.reset();
@@ -322,25 +249,13 @@ void MainWindow::addSampleOrders() {
                : "No hay mercancía disponible para el ejemplo");
 }
 void MainWindow::showStatistics() { rightTabs_->setCurrentWidget(metrics_); }
-void MainWindow::showComparison(const QByteArray &json) {
-  pages_->setCurrentWidget(workspace_);
-  comparison_->showResult(json);
-  rightTabs_->setCurrentWidget(comparison_);
-}
 void MainWindow::refresh() {
   if (!engine_)
     return;
   auto s = engine_->state().snapshot();
   render(s);
-  while (auto event = SimulationLogger::instance().tryNextEvent()) {
-    auto &e = *event;
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  e.when.time_since_epoch())
-                  .count();
-    events_->append(
-        QDateTime::fromMSecsSinceEpoch(ms).toString("HH:mm:ss.zzz") + " " +
-        QString::fromStdString(e.robotId + " [" + e.threadId + "] " + e.text));
-  }
+  while (SimulationLogger::instance().tryNextEvent())
+    ;
 }
 void MainWindow::render(const Snapshot &s) {
   std::optional<RouteOverlay> overlay;
@@ -389,40 +304,6 @@ void MainWindow::render(const Snapshot &s) {
                              : "\nPulsa Iniciar demostración. Los pedidos de "
                                "ejemplo se crean automáticamente."));
   view_->render(s, overlay);
-  robots_->setRowCount(int(s.robots.size()));
-  for (int i = 0; i < int(s.robots.size()); ++i) {
-    auto &r = s.robots[i];
-    QStringList values = {QString::fromStdString(r.id),
-                          label(r.status),
-                          QString::number(r.battery) + "/" +
-                              QString::number(r.maxBattery),
-                          QString::fromStdString(r.carrying),
-                          QString::fromStdString(r.waitingFor),
-                          QString::fromStdString(r.threadId)};
-    for (int j = 0; j < values.size(); ++j) {
-      auto *item = new QTableWidgetItem(values[j]);
-      item->setToolTip(values[j]);
-      robots_->setItem(i, j, item);
-    }
-  }
-  int activeThreads = 0, waitingThreads = 0;
-  for (auto &robot : s.robots) {
-    activeThreads +=
-        !robot.threadId.empty() && robot.status != RobotStatus::Stopped;
-    waitingThreads += robot.status == RobotStatus::Waiting ||
-                      robot.status == RobotStatus::Blocked;
-  }
-  concurrencySummary_->setText(
-      QString("%1 hilos activos  ·  %2 en espera  ·  %3 ciclos observados")
-          .arg(activeThreads)
-          .arg(waitingThreads)
-          .arg(s.metrics.cycles));
-  QStringList reservations;
-  for (auto &[station, robot] : s.stationReservations)
-    reservations << QString::fromStdString(station + " → " + robot);
-  resources_->setText(
-      "Reservas de estación: " +
-      (reservations.empty() ? QString("ninguna") : reservations.join(" · ")));
   auto robotSnapshot = s;
   if (robotSnapshot.robots.empty())
     for (auto &robot : s.scenario.robots)
@@ -430,18 +311,19 @@ void MainWindow::render(const Snapshot &s) {
           {robot.id, "", "", "", robot.position, robot.kind, RobotStatus::Idle,
            robot.battery, robot.kind == RobotKind::Light ? 100 : 150});
   monitor_->render(robotSnapshot);
-  int pending = 0;
-  for (auto &o : s.orders)
-    if (o.status != OrderStatus::Completed && o.status != OrderStatus::Blocked)
-      ++pending;
-  summary_->setText(
-      QString("<span "
-              "style='color:#86EFAC;font-size:24px;font-weight:700'>%1</span> "
-              "completados<br><span style='color:#94A3B8'>%2 pendientes · %3 "
-              "conflictos</span>")
-          .arg(s.metrics.completed)
-          .arg(pending)
-          .arg(s.metrics.conflicts));
   metrics_->render(s);
+  const bool completed = !s.orders.empty() &&
+                         std::all_of(s.orders.begin(), s.orders.end(),
+                                     [](const auto &order) {
+                                       return order.status == OrderStatus::Completed ||
+                                              order.status == OrderStatus::Blocked;
+                                     });
+  if (completed && !start_->isEnabled()) {
+    start_->setEnabled(true);
+    start_->setText("Reiniciar demostración");
+    pause_->setEnabled(false);
+    pause_->setText("Pausar");
+    status_->setText("Demostración finalizada. Puedes reiniciarla.");
+  }
 }
 } // namespace simra

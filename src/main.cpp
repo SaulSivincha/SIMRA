@@ -1,6 +1,5 @@
 #include "simra/window.hpp"
 #include <QApplication>
-#include <QFile>
 #include <QString>
 #include <QTimer>
 int main(int argc, char **argv) {
@@ -14,11 +13,6 @@ int main(int argc, char **argv) {
       window.startDemo();
       if (mode == "--screenshot-stats")
         window.showStatistics();
-    } else if (mode == "--screenshot-comparison" && argc == 4) {
-      QFile file(QString::fromLocal8Bit(argv[2]));
-      if (!file.open(QIODevice::ReadOnly))
-        return 1;
-      window.showComparison(file.readAll());
     } else if (mode != "--screenshot-home") {
       return 1;
     }

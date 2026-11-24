@@ -32,4 +32,4 @@ ctest --test-dir build-tsan -R 'simra_tests|simra_integration' --output-on-failu
 
 Pasaron las dos suites del motor bajo TSan. Este resultado corresponde a los casos ejecutados.
 
-Las capturas provienen del ejecutable Qt. La comparación usa los mismos tres pedidos, sometidos al comienzo de cada corrida, con ocho segundos de horizonte. La salida JSON alimenta la vista de comparación y conserva una observación por tipo de flota. [Simulación](screenshot-simulation.png) · [Comparación](comparison-observed.json).
+Las capturas provienen del ejecutable Qt. [Simulación](screenshot-simulation.png) · [Estadísticas](screenshot-statistics.png).

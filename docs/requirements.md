@@ -9,9 +9,9 @@ El curso pide un proyecto original orientado a objetos que reúna POO, patrones,
 | RF03, RF04 | P0 | `OrderCreator`, `assign`, `pickUp`, `deliver` | entrega/reposición concurrentes, una asignación |
 | RF07, RF08 | P0 | `MainWindow`, `SimulationEngine` | prueba Qt a 1280 × 720, pausa y parada en integración |
 | RF09 | P0 | `SimulationLogger` | prueba multihilo de 80 eventos |
-| RF10, RF11 | P1 | editor e inspector, JSON v1, `clone` | validación de cuatro escenarios y roundtrip |
+| RF10, RF11 | P1 | JSON v1 y validación de escenarios | validación de cuatro escenarios y roundtrip |
 | RF12, RF13 | P1 | generador `std::thread`, comparador con envejecimiento | pruebas de generación y orden |
-| RF14, RF15 | P1 | detección recíproca, cesión y tabla de hilos y reservas | integración y monitor Qt |
-| RF16, RF17 | P1 | métricas transaccionales, `simra_compare`, cuatro JSON | salida de comparación y CTest |
+| RF14, RF15 | P1 | detección recíproca, cesión y monitor de robots | integración y monitor Qt |
+| RF16, RF17 | P1 | métricas técnicas transaccionales y cuatro JSON | panel técnico y CTest |
 
 RF18/P2 permanece fuera de esta versión. Los ajustes y límites de cada cobertura se declaran en [limitations.md](limitations.md).

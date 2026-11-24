@@ -27,7 +27,6 @@ add_library(simra_widgets
   src/warehouse_view.cpp
   src/robot_monitor.cpp
   src/scenario_hub.cpp
-  src/comparison_panel.cpp
   src/statistics_panel.cpp
 )
 target_link_libraries(simra_widgets PUBLIC simra_core Qt6::Widgets PRIVATE simra_json)

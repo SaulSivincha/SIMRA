@@ -3,7 +3,7 @@
 #include <QApplication>
 #include <QLabel>
 #include <QPushButton>
-#include <QTableWidget>
+#include <QTabWidget>
 #include <QTest>
 
 int main(int argc, char **argv) {
@@ -40,23 +40,24 @@ int main(int argc, char **argv) {
   }
   QTest::mouseClick(start, Qt::LeftButton);
   CHECK(!start->isEnabled());
-  CHECK(!window.findChild<QTableWidget *>("ordersTable"));
   auto *currentScenario = window.findChild<QLabel *>("currentScenario");
   CHECK(currentScenario && !currentScenario->text().isEmpty());
   auto *guide = window.findChild<QLabel *>("demonstrationGuide");
   CHECK(guide && guide->text().contains("hilo"));
-  auto *workers = window.findChild<QTableWidget *>("workerTable");
-  CHECK(workers);
-  CHECK(QTest::qWaitFor([&] {
-    return workers->rowCount() == 2 && workers->item(0, 5) &&
-           workers->item(1, 5) && !workers->item(0, 5)->text().isEmpty() &&
-           !workers->item(1, 5)->text().isEmpty();
-  }));
-  CHECK(workers->item(0, 5)->text() != workers->item(1, 5)->text());
+  auto *panels = window.findChild<QTabWidget *>();
+  CHECK(panels && panels->count() == 2);
+  CHECK(panels->tabText(0) == "Robots");
+  CHECK(panels->tabText(1) == "Estadísticas");
+  CHECK(window.findChild<QWidget *>("technicalStats"));
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Reanudar");
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Pausar");
+  CHECK(QTest::qWaitFor(
+      [&] { return start->isEnabled() && start->text() == "Reiniciar demostración"; },
+      12000));
+  QTest::mouseClick(start, Qt::LeftButton);
+  CHECK(!start->isEnabled());
   auto *home = button("homeScreen");
   QTest::mouseClick(home, Qt::LeftButton);
   CHECK(basicDemo->isVisible());

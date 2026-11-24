@@ -5,7 +5,7 @@ digraph SIMRA {
   subgraph cluster_ui {
     label="Presentación Qt Widgets"; color="#94a3b8"; fontname="DejaVu Sans";
     main [label="MainWindow"];
-    panels [label="ScenarioHub\nWarehouseView\nRobotMonitor\nStatisticsPanel\nComparisonPanel"];
+    panels [label="ScenarioHub\nWarehouseView\nRobotMonitor\nStatisticsPanel"];
     main -> panels [label="actualiza"];
   }
   subgraph cluster_core {

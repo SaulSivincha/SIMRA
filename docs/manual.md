@@ -8,8 +8,4 @@ Compila con los comandos del README y abre `./build/simra`. En Inicio elige uno 
 
 **Iniciar demostración** crea un hilo por robot y solicita automáticamente una entrega y una reposición con la mercancía disponible. **Pausar** congela movimientos y generación; **Reanudar** prosigue. Para finalizar o cambiar de escenario usa **Inicio**: SIMRA detiene y une los hilos antes de volver a la selección. **Iniciar demostración** crea una ejecución limpia desde el escenario elegido.
 
-El mapa usa azul para ligero, violeta para pesado, marrón para estantes, ámbar para recarga, verde para entrega y cian para recepción. Selecciona un robot en su tarjeta o en la tabla Concurrencia para ver la ruta disponible en línea discontinua. Concurrencia muestra el ID de cada hilo, el recurso esperado y las reservas de estación. Estadísticas se calculan con transacciones del motor; los eventos tienen hora e ID de hilo.
-
-## Comparar
-
-La comparación reproducible se ejecuta desde terminal con `./build/simra_compare scenarios/basic.json`. El recorrido gráfico se mantiene intencionalmente simple: elegir la demostración, iniciarla, pausarla si hace falta y observar el plano.
+El mapa usa azul para ligero, violeta para pesado, marrón para estantes, ámbar para recarga, verde para entrega y cian para recepción. Selecciona un robot en su tarjeta para ver la ruta disponible en línea discontinua. La pestaña Estadísticas muestra el estado técnico: hilos activos o en espera, buffer de trabajo, recursos exclusivos libres y reservados, conflictos de mutex, ciclos de espera, bloqueos, batería y recargas. Cuando todos los pedidos terminan, **Reiniciar demostración** crea una ejecución limpia.
