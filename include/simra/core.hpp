@@ -352,6 +352,7 @@ struct Event {
 class SimulationLogger {
   mutable std::mutex mutex_;
   std::deque<Event> events_;
+  ThreadSafeQueue<Event> pending_;
   SimulationLogger() = default;
 
 public:
@@ -363,6 +364,7 @@ public:
   }
   void log(std::string text, std::string robotId = {});
   std::vector<Event> events() const;
+  std::optional<Event> tryNextEvent() { return pending_.tryPop(); }
 };
 class WarehouseState {
   struct RuntimeRobot {

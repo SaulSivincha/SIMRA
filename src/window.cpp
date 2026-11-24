@@ -346,9 +346,8 @@ void MainWindow::refresh() {
     return;
   auto s = engine_->state().snapshot();
   render(s);
-  auto events = SimulationLogger::instance().events();
-  for (size_t i = lastEvent_; i < events.size(); ++i) {
-    auto &e = events[i];
+  while (auto event = SimulationLogger::instance().tryNextEvent()) {
+    auto &e = *event;
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   e.when.time_since_epoch())
                   .count();
@@ -356,7 +355,6 @@ void MainWindow::refresh() {
         QDateTime::fromMSecsSinceEpoch(ms).toString("HH:mm:ss.zzz") + " " +
         QString::fromStdString(e.robotId + " [" + e.threadId + "] " + e.text));
   }
-  lastEvent_ = events.size();
 }
 void MainWindow::render(const Snapshot &s) {
   constexpr int cell = 42;

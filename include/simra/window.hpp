@@ -26,7 +26,6 @@ class MainWindow final : public QMainWindow {
   QTimer *timer_{};
   QPushButton *start_{}, *pause_{}, *stop_{}, *editor_{};
   bool editing_{}, automatic_{};
-  uint64_t lastEvent_{};
   int nextOrder_{1};
   void render(const Snapshot &);
   void refresh();

@@ -17,6 +17,6 @@ La tabla vincula las diapositivas locales del docente con código que se ejecuta
 | `multihilo2.pdf` | Vida y coordinación | `joinable`, `join`, `get_id`, `unique_lock`, `condition_variable` |
 | `multihilo3.pdf` | Invocables | Worker functor y lambda del generador |
 
-`Matrix<T>` abstrae una cuadrícula con acceso validado y `ThreadSafeQueue<T>` tiene `push`, `tryPop`, `waitPop`, `close` y `size`. La cola no decide asignaciones: pedidos se seleccionan por prioridad y compatibilidad bajo la transacción del estado.
+`Matrix<T>` abstrae una cuadrícula con acceso validado. `ThreadSafeQueue<T>` tiene `push`, `tryPop`, `waitPop`, `close` y `size`; el logger la usa para entregar eventos al hilo Qt. La cola no decide asignaciones: pedidos se seleccionan por prioridad y compatibilidad bajo la transacción del estado.
 
 Los productos de fábrica tienen comportamiento virtual real y se usan mediante punteros base. El Builder valida el producto al construirlo. El Prototype copia solo datos de configuración. El Singleton se limita al logger para no convertir todo el dominio en estado global.
