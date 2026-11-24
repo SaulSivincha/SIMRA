@@ -40,9 +40,9 @@ int main(int argc, char **argv) {
   }
   QTest::mouseClick(start, Qt::LeftButton);
   CHECK(!start->isEnabled());
-  auto *orders = window.findChild<QTableWidget *>("ordersTable");
-  CHECK(orders);
-  CHECK(QTest::qWaitFor([&] { return orders->rowCount() == 2; }));
+  CHECK(!window.findChild<QTableWidget *>("ordersTable"));
+  auto *currentScenario = window.findChild<QLabel *>("currentScenario");
+  CHECK(currentScenario && !currentScenario->text().isEmpty());
   auto *guide = window.findChild<QLabel *>("demonstrationGuide");
   CHECK(guide && guide->text().contains("hilo"));
   auto *workers = window.findChild<QTableWidget *>("workerTable");

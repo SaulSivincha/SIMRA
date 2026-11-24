@@ -1,6 +1,5 @@
 #include "simra/window.hpp"
 #include "simra/scenario_hub.hpp"
-#include <QComboBox>
 #include <QDateTime>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -38,21 +37,6 @@ static QString label(RobotStatus s) {
   }
   return {};
 }
-static QString label(OrderStatus s) {
-  switch (s) {
-  case OrderStatus::Pending:
-    return "Pendiente";
-  case OrderStatus::Assigned:
-    return "Asignado";
-  case OrderStatus::InProgress:
-    return "En curso";
-  case OrderStatus::Completed:
-    return "Completado";
-  case OrderStatus::Blocked:
-    return "Bloqueado";
-  }
-  return {};
-}
 static QTableWidget *table(QStringList columns) {
   auto *t = new QTableWidget;
   t->setColumnCount(columns.size());
@@ -61,6 +45,30 @@ static QTableWidget *table(QStringList columns) {
   t->verticalHeader()->hide();
   t->setEditTriggers(QAbstractItemView::NoEditTriggers);
   return t;
+}
+static QString scenarioId(int index) {
+  switch (index) {
+  case 1:
+    return "mixed";
+  case 2:
+    return "congestion";
+  case 3:
+    return "charging";
+  default:
+    return "basic";
+  }
+}
+static QString scenarioTitle(int index) {
+  switch (index) {
+  case 1:
+    return "Herencia y polimorfismo";
+  case 2:
+    return "Mutex: pasillo compartido";
+  case 3:
+    return "Sincronización: recarga compartida";
+  default:
+    return "Hilos y pedidos concurrentes";
+  }
 }
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   setWindowTitle("SIMRA · Simulador Multihilo de Robots de Almacén");
@@ -83,7 +91,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   pages_->addWidget(workspace_);
   hub_ = new ScenarioHub(
       [this](int index) {
-        scenarios_->setCurrentIndex(index);
+        scenarioIndex_ = index;
         loadPreset();
         pages_->setCurrentWidget(workspace_);
       });
@@ -94,12 +102,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   auto *title = new QLabel("SIMRA");
   title->setStyleSheet("font-size:24px;font-weight:bold;color:#60A5FA");
   toolbar->addWidget(title);
-  scenarios_ = new QComboBox;
-  scenarios_->addItem("Hilos y pedidos concurrentes", "basic");
-  scenarios_->addItem("Herencia y polimorfismo", "mixed");
-  scenarios_->addItem("Mutex: pasillo compartido", "congestion");
-  scenarios_->addItem("Sincronización: recarga compartida", "charging");
-  toolbar->addWidget(scenarios_);
+  scenarioName_ = new QLabel;
+  scenarioName_->setObjectName("currentScenario");
+  scenarioName_->setStyleSheet("color:#CBD5E1;font-weight:600;padding:8px;");
+  toolbar->addWidget(scenarioName_);
+  toolbar->addStretch();
   auto *home = new QPushButton("Inicio", workspace_);
   home->setObjectName("homeScreen");
   connect(home, &QPushButton::clicked, this, [this] {
@@ -137,14 +144,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   root->addWidget(concept_);
   auto *split = new QSplitter(Qt::Horizontal);
   root->addWidget(split, 1);
-  leftTabs_ = new QTabWidget;
-  auto *left = leftTabs_;
-  split->addWidget(left);
-  orders_ = table({"Pedido", "Carga", "Tipo", "Estado", "Robot"});
-  orders_->setObjectName("ordersTable");
-  left->addTab(orders_, "Pedidos");
-  inventory_ = table({"Mercancía", "Kg", "Ubicación"});
-  left->addTab(inventory_, "Inventario");
   view_ = new WarehouseView;
   view_->setObjectName("warehouseMap");
   split->addWidget(view_);
@@ -179,7 +178,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   right->addTab(metrics_, "Estadísticas");
   comparison_ = new ComparisonPanel;
   right->addTab(comparison_, "Comparación");
-  split->setSizes({280, 710, 425});
+  split->setSizes({980, 425});
   auto *activity = new QFrame;
   activity->setStyleSheet("QFrame{background:#1E293B;border:1px solid #334155;"
                           "border-radius:8px;} QLabel{border:0;}");
@@ -213,7 +212,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 void MainWindow::loadPreset() {
   try {
     auto path = QString(SIMRA_SOURCE_DIR) + "/scenarios/" +
-                scenarios_->currentData().toString() + ".json";
+                scenarioId(scenarioIndex_) + ".json";
     auto candidate = loadScenario(path.toStdString());
     if (engine_)
       stopSimulation();
@@ -221,7 +220,8 @@ void MainWindow::loadPreset() {
     selectedRobot_.clear();
     scenario_ = std::move(candidate);
     render(Snapshot{scenario_});
-    status_->setText("Escenario " + scenarios_->currentText() + " validado");
+    scenarioName_->setText("Escenario · " + scenarioTitle(scenarioIndex_));
+    status_->setText("Escenario preparado");
     start_->setEnabled(true);
     pause_->setEnabled(false);
   } catch (const std::exception &e) {
@@ -383,7 +383,7 @@ void MainWindow::render(const Snapshot &s) {
       "celda a un solo robot. Las esperas aparecen en ámbar.",
       "Observa la estación C. Los robots solicitan una reserva exclusiva, "
       "esperan su turno y recuperan batería antes de salir."};
-  concept_->setText(explanations.value(scenarios_->currentIndex()) +
+  concept_->setText(explanations.value(scenarioIndex_) +
                     (engine_ ? "\nLa línea discontinua muestra una ruta BFS. "
                                "La caja amarilla indica mercancía en custodia."
                              : "\nPulsa Iniciar demostración. Los pedidos de "
@@ -423,29 +423,6 @@ void MainWindow::render(const Snapshot &s) {
   resources_->setText(
       "Reservas de estación: " +
       (reservations.empty() ? QString("ninguna") : reservations.join(" · ")));
-  orders_->setRowCount(int(s.orders.size()));
-  for (int i = 0; i < int(s.orders.size()); ++i) {
-    auto &o = s.orders[i];
-    QStringList values = {
-        QString::fromStdString(o.id), QString::fromStdString(o.cargoId),
-        o.kind == OrderKind::Delivery ? "Entrega" : "Reposición",
-        label(o.status), QString::fromStdString(o.robotId)};
-    for (int j = 0; j < values.size(); ++j)
-      orders_->setItem(i, j, new QTableWidgetItem(values[j]));
-  }
-  auto cargoViews = s.cargo;
-  if (cargoViews.empty())
-    for (auto &cargo : s.scenario.cargo)
-      cargoViews.push_back({cargo.id, cargo.locationId, cargo.weight});
-  inventory_->setRowCount(int(cargoViews.size()));
-  for (int i = 0; i < int(cargoViews.size()); ++i) {
-    auto &cargo = cargoViews[i];
-    QStringList values = {QString::fromStdString(cargo.id),
-                          QString::number(cargo.weight),
-                          QString::fromStdString(cargo.locationId)};
-    for (int j = 0; j < values.size(); ++j)
-      inventory_->setItem(i, j, new QTableWidgetItem(values[j]));
-  }
   auto robotSnapshot = s;
   if (robotSnapshot.robots.empty())
     for (auto &robot : s.scenario.robots)

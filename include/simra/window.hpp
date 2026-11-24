@@ -5,7 +5,6 @@
 #include "simra/statistics_panel.hpp"
 #include "simra/warehouse_view.hpp"
 #include <QMainWindow>
-class QComboBox;
 class QTableWidget;
 class QTextEdit;
 class QLabel;
@@ -19,25 +18,22 @@ class MainWindow final : public QMainWindow {
   Scenario scenario_;
   std::unique_ptr<SimulationEngine> engine_;
   WarehouseView *view_{};
-  QComboBox *scenarios_{};
   QTableWidget *robots_{};
-  QTableWidget *orders_{};
-  QTableWidget *inventory_{};
   RobotMonitor *monitor_{};
   QTextEdit *events_{};
   ComparisonPanel *comparison_{};
   StatisticsPanel *metrics_{};
-  QLabel *status_{};
+  QLabel *status_{}, *scenarioName_{};
   QLabel *summary_{};
   QLabel *concept_{};
   QLabel *concurrencySummary_{}, *resources_{};
   QTimer *timer_{};
-  QTabWidget *leftTabs_{};
   QTabWidget *rightTabs_{};
   QStackedWidget *pages_{};
   QWidget *workspace_{};
   ScenarioHub *hub_{};
   QPushButton *start_{}, *pause_{};
+  int scenarioIndex_{};
   int nextOrder_{1};
   std::string selectedRobot_;
   void render(const Snapshot &);
