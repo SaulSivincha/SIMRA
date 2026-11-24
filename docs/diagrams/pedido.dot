@@ -1,0 +1,15 @@
+digraph Pedido {
+  graph [rankdir=LR, bgcolor="#f8fafc", pad=.28, nodesep=.4, ranksep=.65];
+  node [shape=box, style="rounded,filled", fillcolor="#dbeafe", color="#2563eb", fontname="DejaVu Sans"];
+  edge [color="#475569", fontname="DejaVu Sans", fontsize=10];
+  pending [label="Pendiente"];
+  assigned [label="Asignado"];
+  progress [label="En curso"];
+  blocked [label="Bloqueado\nCarga en custodia", fillcolor="#fef3c7", color="#d97706"];
+  completed [label="Completado", fillcolor="#dcfce7", color="#16a34a"];
+  pending -> assigned [label="reservar carga y destino"];
+  assigned -> progress [label="recoger"];
+  progress -> blocked [label="espera prolongada en ruta"];
+  blocked -> progress [label="recuperar el paso"];
+  progress -> completed [label="entregar"];
+}

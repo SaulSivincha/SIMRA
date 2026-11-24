@@ -1,5 +1,5 @@
-Misma carga: O1/K01, O2/K02, O3/K_IN; mismo horizonte: 8 s; semilla: 42
+Misma carga: O1/K01, O2/K02, O3/K_IN. Horizonte: 8 s. Semilla registrada: 42.
 Robots | Completados | Conflictos | Distancia | Energía | Tiempo activo (ms)
-2 | 2 | 2 | 44 | 66 | 8000
-3 | 3 | 1 | 41 | 67 | 8000
-El orden de los hilos puede variar entre ejecuciones.
+2 | 2 | 0 | 39 | 61 | 8000
+3 | 3 | 0 | 38 | 62 | 8000
+Una corrida por configuración. El orden de los hilos puede variar.

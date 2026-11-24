@@ -8,7 +8,9 @@ cmake --build build -j4
 ctest --test-dir build --output-on-failure
 ```
 
-Resultado observado: 2/2 pruebas aprobadas. `simra_tests` cubre Position, Matrix, BFS, compatibilidad de familias, Factory Method, Builder, Prototype, clon independiente, asignación concurrente, cola, logger multihilo, JSON roundtrip y validación de los cuatro escenarios. `simra_integration` coordina dos movimientos a una celda, verifica reserva exclusiva y liberación de cargador, pausa sin avance, entrega y reposición concurrentes con custodia final y generación automática real.
+Resultado observado en Release: 3/3 pruebas aprobadas. `simra_tests` cubre Position, Matrix, BFS, compatibilidad de familias, Factory Method, Builder, Prototype, clon independiente, asignación concurrente, cola, logger multihilo, JSON roundtrip y validación de los cuatro escenarios. `simra_integration` coordina dos movimientos a una celda, verifica reserva exclusiva y liberación de cargador y recepción, pausa sin avance, entrega y reposición concurrentes con custodia final y generación automática real.
+
+`simra_gui` abre la ventana a 1280 × 720 con Qt en modo sin pantalla. Entra al editor, coloca y borra un obstáculo, comprueba el inspector, inicia la sesión, verifica dos IDs de hilo distintos, pausa, reanuda y detiene.
 
 ASan/UBSan:
 
@@ -18,6 +20,16 @@ cmake --build build-asan -j4
 ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-asan --output-on-failure
 ```
 
-Resultado observado: 2/2 aprobadas. LeakSanitizer con `detect_leaks=1` falló por la restricción `ptrace` del entorno antes de producir un diagnóstico del programa; por eso se desactivó solo esa comprobación. No se afirma ausencia absoluta de carreras: TSan no se ejecutó aquí.
+Resultado observado: 3/3 aprobadas. LeakSanitizer con `detect_leaks=1` falló por la restricción `ptrace` del entorno antes de producir un diagnóstico del programa; por eso se desactivó solo esa comprobación.
 
-La [captura real](screenshot-simulation.png) se generó con el ejecutable Qt, no con las maquetas. [La comparación observada](comparison-observed.txt) es una salida auténtica de `simra_compare`; sus números son una muestra y no un benchmark generalizable.
+## ThreadSanitizer
+
+```bash
+cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-fsanitize=thread -fno-omit-frame-pointer' -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=thread'
+cmake --build build-tsan --target simra_tests simra_integration -j3
+ctest --test-dir build-tsan -R 'simra_tests|simra_integration' --output-on-failure
+```
+
+Pasaron las dos suites del motor bajo TSan. Este resultado corresponde a los casos ejecutados.
+
+Las capturas provienen del ejecutable Qt. La comparación usa los mismos tres pedidos, sometidos al comienzo de cada corrida, con ocho segundos de horizonte. La salida JSON alimenta la vista de comparación y conserva una observación por tipo de flota. [Simulación](screenshot-simulation.png) · [Comparación](comparison-observed.json).

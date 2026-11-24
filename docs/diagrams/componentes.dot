@@ -1,0 +1,30 @@
+digraph SIMRA {
+  graph [rankdir=LR, bgcolor="#f8fafc", pad=.28, nodesep=.4, ranksep=.65, fontname="DejaVu Sans"];
+  node [shape=box, style="rounded,filled", fillcolor="#dbeafe", color="#2563eb", fontname="DejaVu Sans", margin=".18,.12"];
+  edge [color="#475569", fontname="DejaVu Sans", fontsize=10];
+  subgraph cluster_ui {
+    label="Presentación Qt Widgets"; color="#94a3b8"; fontname="DejaVu Sans";
+    main [label="MainWindow"];
+    panels [label="ScenarioHub\nWarehouseView\nRobotMonitor\nStatisticsPanel\nComparisonPanel"];
+    main -> panels [label="actualiza"];
+  }
+  subgraph cluster_core {
+    label="Motor C++20"; color="#94a3b8"; fontname="DejaVu Sans";
+    engine [label="SimulationEngine"];
+    workers [label="RobotWorker\n1 hilo por robot"];
+    generator [label="Generador opcional\n1 hilo"];
+    state [label="WarehouseState\nmutex + condición"];
+    planner [label="Planificador\nBFS + presupuesto de energía"];
+    domain [label="Scenario · Matrix\nRobot · Order · ChargingStation"];
+    engine -> workers [label="crea y une"];
+    engine -> generator [label="crea y une"];
+    workers -> state;
+    generator -> state;
+    state -> planner [label="calcula fuera del mutex"];
+    state -> domain [label="protege"];
+  }
+  repository [label="JSON v1\nQt Core"];
+  main -> engine [label="controla"];
+  state -> main [label="snapshot"];
+  main -> repository [label="abre y guarda"];
+}

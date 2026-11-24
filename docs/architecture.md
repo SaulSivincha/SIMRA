@@ -1,6 +1,10 @@
 # Arquitectura verificable
 
-La configuración `Scenario` es copiable; `WarehouseState` contiene la ejecución mutable y protege robots, pedidos, mercancía, estaciones, ocupación y métricas con un mutex. `SimulationEngine` posee un `std::thread` por robot y, opcionalmente, un hilo generador. `RobotWorker::operator()` implementa el ciclo de trabajo. Qt lee `Snapshot`, una copia consistente, cada 100 ms; ninguna llamada de Qt ocurre en los trabajadores.
+SIMRA usa una arquitectura por capas con una presentación que controla el motor y dibuja sus snapshots. CMake hace explícitas las dependencias. `simra_core` reúne el dominio y la aplicación sin dependencias de Qt. `simra_json` usa Qt Core para persistencia. `simra_widgets` concentra la interfaz.
+
+La configuración `Scenario` se copia como datos. `WarehouseState` protege robots, pedidos, mercancía, estaciones y métricas con un mutex. `SimulationEngine` posee un hilo por robot y puede añadir un generador. `MainWindow` coordina el ciclo de la sesión y distribuye snapshots a las vistas. Cada vista se concentra en mostrar sus propios datos. El generador y los robots trabajan con tipos de C++20.
+
+[Diagrama de componentes en SVG](diagrams/componentes.svg) · [Estados del pedido en SVG](diagrams/pedido.svg). Ambos tienen fuentes DOT y copias PNG en la misma carpeta.
 
 ```mermaid
 flowchart TD
@@ -18,15 +22,15 @@ flowchart TD
 
 ## Invariantes y transacciones
 
-- Una posición contiene a lo sumo un robot. `WarehouseState::move` valida adyacencia, terreno, ocupación, energía y reserva de cargador antes de actualizar posición, batería y métricas bajo un único lock.
-- Un pedido se asigna a un único robot. `assign` copia las condiciones, calcula BFS fuera del lock y revalida versión, batería, robot, pedido y carga antes de reservar. El envejecimiento agrega un nivel de prioridad cada 30 segundos de espera, hasta urgente.
+- Una posición contiene a lo sumo un robot. `WarehouseState::move` valida adyacencia, terreno, ocupación, energía y reserva de estación antes de actualizar posición, batería y métricas bajo un único lock.
+- Un pedido se asigna a un único robot. `assign` copia las condiciones, calcula BFS fuera del lock y revalida versión, batería, robot, pedido y carga antes de reservar. El planificador guarda las celdas de servicio de recogida y entrega junto con la asignación. Antes de intentar un desvío, el trabajador verifica que quede energía para la tarea y para llegar a un cargador compatible. El envejecimiento agrega un nivel de prioridad cada 30 segundos de espera, hasta urgente.
 - Una carga tiene una ubicación lógica: estante, recepción, ID del robot o `DELIVERED`. `pickUp` y `deliver` cambian custodia bajo el mismo lock. La reposición comprueba espacio incluyendo reservas activas.
-- Un cargador admite un solo propietario. La reserva no ocupa su celda. Se libera al salir de la celda de servicio. La compatibilidad de conectores se comprueba por la familia de productos de Abstract Factory.
+- Cada estación admite un solo propietario. La reserva no ocupa su celda y se libera al salir de ella. La compatibilidad de cargadores se comprueba por la familia de productos de Abstract Factory.
 - Pausa y parada son banderas protegidas por el mismo mutex usado por la variable de condición. `stop` notifica, los trabajadores salen cooperativamente y el motor hace `join` antes de destruir el estado.
 
 ## Ruta y espera
 
-BFS usa `Matrix<uint8_t>` para terreno y visitas; devuelve `nullopt` si no existe ruta y un vector vacío cuando origen y destino coinciden. La ruta puede considerar ocupación dinámica; cada paso vuelve a validarse. Ante colisión, el trabajador espera una notificación o timeout, toma otro snapshot y replantea. La relación de espera robot→robot detecta ciclos de dos robots y los cuenta. Tras espera prolongada se muestra `Bloqueado` y se sigue reintentando; no se promete resolver toda congestión.
+BFS usa `Matrix<uint8_t>` para terreno y visitas; devuelve `nullopt` si no existe ruta y un vector vacío cuando origen y destino coinciden. La ruta puede considerar ocupación dinámica; cada paso vuelve a validarse. Ante colisión, el trabajador espera una notificación o timeout, toma otro snapshot y replantea. La relación de espera robot→robot detecta ciclos de dos robots; el de mayor ID intenta ceder a una celda libre con ruta restante. Tras dos segundos lógicos de espera en ruta se muestra `Bloqueado`. Si hay carga, el pedido queda bloqueado en custodia hasta que el robot pueda retomar la entrega.
 
 ## Propiedad y memoria
 

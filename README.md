@@ -19,10 +19,10 @@ En algunos escritorios KDE, la captura sin pantalla requiere `QT_QPA_PLATFORMTHE
 
 ## Uso rápido
 
-1. Selecciona uno de los cuatro escenarios y pulsa **Cargar escenario**.
-2. Pulsa **Iniciar**. Usa **Nuevo pedido** para escoger mercancía, destino y prioridad. **Auto: sí** crea solicitudes desde un hilo propio a la cadencia del JSON.
-3. Observa la cuadrícula, las tablas de pedidos y robots, los IDs de hilo, eventos y estadísticas. **Pausar/Reanudar** detiene los avances lógicos; **Detener** une los hilos.
-4. Antes de iniciar, **Editar mapa** permite poner o borrar elementos por clic. **Guardar JSON**, **Abrir JSON** y **Clonar** trabajan con la configuración, nunca con mutex o hilos.
+1. Abre una de las cuatro plantillas desde Inicio. En el área de trabajo puedes cambiar de plantilla con **Cargar escenario**.
+2. Pulsa **Ejecutar ejemplo** para probar una entrega y una reposición. También puedes pulsar **Iniciar** y usar **Nuevo pedido** para escoger mercancía, destino y prioridad. **Auto: sí** crea solicitudes desde un hilo propio a la cadencia del JSON.
+3. Observa la cuadrícula, las tablas de pedidos y robots, los IDs de hilo, eventos y estadísticas. Ajusta velocidad de `0.25×` a `4×`. **Pausar/Reanudar** detiene los avances lógicos; **Detener** une los hilos.
+4. **Editar mapa** permite poner, inspeccionar o borrar elementos por clic. **Configurar** ajusta el tamaño y la generación automática. **Guardar JSON**, **Abrir JSON** y **Clonar** trabajan con la configuración, nunca con mutex o hilos.
 5. **Comparar 2/3** ejecuta en segundo plano dos experimentos del escenario básico, con los mismos tres pedidos iniciales y ocho segundos de horizonte. El resultado aparece en la pestaña Comparación.
 
 El ejecutable de comparación también se puede usar en terminal:
@@ -33,9 +33,9 @@ El ejecutable de comparación también se puede usar en terminal:
 
 ## Estructura
 
-- `include/simra/core.hpp`, `src/core.cpp`: dominio, BFS, estado compartido, patrones, trabajadores y motor.
-- `src/json.cpp`: lectura, validación y guardado atómico de escenarios JSON v1.
-- `src/window.cpp`: Qt Widgets y `QGraphicsScene`; solo lee snapshots del motor.
+- `simra_core`: dominio, patrones, planificación BFS, estado compartido, motor y edición de escenarios en C++20.
+- `simra_json`: lectura y guardado de configuraciones, con validación y escritura atómica.
+- `simra_widgets`: inicio, plano del almacén, robots, concurrencia, estadísticas y comparación.
 - `scenarios/`: básico, mixto, congestión y competencia energética.
 - `tests/`: pruebas unitarias y de integración concurrente.
 - `docs/`: arquitectura, requisitos, patrones, concurrencia, pruebas, manual y evidencia.
@@ -44,4 +44,8 @@ La especificación original y los doce PDF del curso se consultaron localmente. 
 
 ## Estado de alcance
 
-P0 tiene núcleo funcional: dos tipos de robot, hilos reales, entrega y reposición, inventario, BFS, ocupación exclusiva, batería/recarga, controles, cinco patrones y pruebas. P1 incluye editor básico, cuatro escenarios, JSON, clonación, prioridades con envejecimiento, generación automática, detección de espera mutua simple, monitor, métricas y comparación fija. Las limitaciones exactas están en [docs/limitations.md](docs/limitations.md); P2 queda sin implementar.
+P0 tiene núcleo funcional: dos tipos de robot, hilos reales, entrega y reposición, inventario, BFS, ocupación exclusiva, batería/recarga, controles, cinco patrones y pruebas. P1 incluye editor básico, cuatro escenarios, JSON, clonación, prioridades con envejecimiento, generación automática, detección de espera mutua, maniobra de cesión, monitor, métricas y comparación controlada. Las limitaciones exactas están en [docs/limitations.md](docs/limitations.md); P2 queda sin implementar.
+
+## Capturas
+
+[Inicio](docs/screenshot-home.png) · [Editor](docs/screenshot-editor.png) · [Simulación](docs/screenshot-simulation.png) · [Estadísticas](docs/screenshot-statistics.png) · [Comparación](docs/screenshot-comparison.png)
