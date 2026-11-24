@@ -35,10 +35,14 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
                                         "Pasillo congestionado",
                                         "Competencia por recarga"};
   const std::array<QString, 4> descriptions = {
-      "Entrega y reposición con dos robots ligeros.",
-      "Robots ligeros y pesados con conectores distintos.",
-      "Seis robots comparten pasillos estrechos.",
-      "Tres robots con poca batería comparten una estación."};
+      "<b>Demuestra: multihilo real.</b> Dos robots avanzan y atienden "
+      "pedidos al mismo tiempo.",
+      "<b>Demuestra: herencia y polimorfismo.</b> Un robot ligero y uno "
+      "pesado responden distinto ante la misma tarea.",
+      "<b>Demuestra: mutex y exclusión mutua.</b> Los robots esperan su "
+      "turno para cruzar zonas compartidas.",
+      "<b>Demuestra: sincronización de recursos.</b> Varios robots reservan "
+      "y comparten un cargador."};
   for (int index = 0; index < int(names.size()); ++index) {
     auto *card = new QFrame;
     card->setStyleSheet("QFrame{background:#1E293B;border:1px solid "
@@ -52,6 +56,7 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
             [openPreset, index] { openPreset(index, false); });
     cardLayout->addWidget(button);
     auto *text = new QLabel(descriptions[index]);
+    text->setObjectName(QString("scenarioConcept%1").arg(index));
     text->setStyleSheet("color:#A8B8CE;");
     text->setWordWrap(true);
     cardLayout->addWidget(text);

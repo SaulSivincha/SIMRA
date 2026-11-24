@@ -19,6 +19,12 @@ int main(int argc, char **argv) {
   };
   auto *basicDemo = button("preset0");
   CHECK(basicDemo->isVisible());
+  auto *basicConcept =
+      window.findChild<QLabel *>("scenarioConcept0");
+  auto *chargingConcept =
+      window.findChild<QLabel *>("scenarioConcept3");
+  CHECK(basicConcept && basicConcept->text().contains("multihilo"));
+  CHECK(chargingConcept && chargingConcept->text().contains("recursos"));
   QTest::mouseClick(basicDemo, Qt::LeftButton);
   auto *edit = button("editScenario");
   QTest::mouseClick(edit, Qt::LeftButton);
