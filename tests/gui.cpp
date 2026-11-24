@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
   };
   auto *basicDemo = button("preset0");
   CHECK(basicDemo->isVisible());
+  CHECK(basicDemo->text() == "Hilos y pedidos concurrentes");
   auto *basicConcept =
       window.findChild<QLabel *>("scenarioConcept0");
   auto *chargingConcept =

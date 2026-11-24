@@ -106,10 +106,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   title->setStyleSheet("font-size:24px;font-weight:bold;color:#60A5FA");
   toolbar->addWidget(title);
   scenarios_ = new QComboBox;
-  scenarios_->addItem("Almacén básico", "basic");
-  scenarios_->addItem("Flota mixta", "mixed");
-  scenarios_->addItem("Congestión", "congestion");
-  scenarios_->addItem("Competencia por recarga", "charging");
+  scenarios_->addItem("Hilos y pedidos concurrentes", "basic");
+  scenarios_->addItem("Herencia y polimorfismo", "mixed");
+  scenarios_->addItem("Mutex: pasillo compartido", "congestion");
+  scenarios_->addItem("Sincronización: recarga compartida", "charging");
   toolbar->addWidget(scenarios_);
   auto *advancedMenu = new QMenu(this);
   auto *advanced = new QToolButton;

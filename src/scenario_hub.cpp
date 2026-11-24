@@ -31,9 +31,9 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
   content->setSpacing(24);
   auto *options = new QVBoxLayout;
   options->setSpacing(12);
-  const std::array<QString, 4> names = {"Almacén básico", "Flota mixta",
-                                        "Pasillo congestionado",
-                                        "Competencia por recarga"};
+  const std::array<QString, 4> names = {
+      "Hilos y pedidos concurrentes", "Herencia y polimorfismo",
+      "Mutex: pasillo compartido", "Sincronización: recarga compartida"};
   const std::array<QString, 4> descriptions = {
       "• <b>Hilos:</b> un hilo de ejecución por robot.<br>"
       "• <b>Cola segura:</b> pedidos compartidos entre hilos.<br>"
