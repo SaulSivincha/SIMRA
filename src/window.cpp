@@ -193,10 +193,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   editor_ = button("Editar mapa", [this] { setEditing(!editing_); });
   editor_->setObjectName("editScenario");
   tool_ = new QComboBox;
+  tool_->setObjectName("editorTool");
   tool_->addItems({"Seleccionar", "Estante", "Obstáculo", "Robot ligero",
                    "Robot pesado", "Recarga ligera", "Recarga industrial",
                    "Entrega", "Recepción", "Mercancía", "Borrar"});
-  buttonRow->addWidget(tool_);
   auto *automatic = button("Auto: no", [this] {
     automatic_ = !automatic_;
     auto *b = qobject_cast<QPushButton *>(sender());
@@ -261,7 +261,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   });
   auto *split = new QSplitter(Qt::Horizontal);
   root->addWidget(split, 1);
-  auto *left = new QTabWidget;
+  leftTabs_ = new QTabWidget;
+  auto *left = leftTabs_;
   split->addWidget(left);
   orders_ = table({"Pedido", "Carga", "Tipo", "Estado", "Robot"});
   left->addTab(orders_, "Pedidos");
@@ -289,7 +290,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             }
           });
   left->addTab(inventory_, "Inventario");
+  toolsPage_ = new QWidget;
+  auto *toolLayout = new QVBoxLayout(toolsPage_);
+  auto *toolHeading = new QLabel("Herramientas del mapa");
+  toolHeading->setStyleSheet("font-weight:700;font-size:15px;");
+  toolLayout->addWidget(toolHeading);
+  toolLayout->addWidget(tool_);
+  auto *toolHelp = new QLabel(
+      "Clic para colocar o inspeccionar.\nClic derecho para borrar.");
+  toolHelp->setWordWrap(true);
+  toolHelp->setStyleSheet("color:#9CB1CC;");
+  toolLayout->addWidget(toolHelp);
+  toolLayout->addStretch();
+  left->addTab(toolsPage_, "Herramientas");
   view_ = new WarehouseView;
+  view_->setObjectName("warehouseMap");
   view_->setEditHandler([this](Position p, bool erase) {
     if (editing_ && !engine_)
       editCell(p, erase);
@@ -326,8 +341,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   right->addTab(metrics_, "Estadísticas");
   comparison_ = new ComparisonPanel;
   right->addTab(comparison_, "Comparación");
-  split->setSizes({250, 610, 540});
+  inspectorPage_ = new QWidget;
+  auto *inspectLayout = new QVBoxLayout(inspectorPage_);
+  auto *inspectHeading = new QLabel("Propiedades de la celda");
+  inspectHeading->setStyleSheet("font-weight:700;font-size:15px;");
+  inspectLayout->addWidget(inspectHeading);
+  cellInspector_ = new QLabel;
+  cellInspector_->setObjectName("cellInspector");
+  cellInspector_->setTextFormat(Qt::PlainText);
+  cellInspector_->setWordWrap(true);
+  cellInspector_->setStyleSheet("color:#CBD5E1;padding:12px;");
+  inspectLayout->addWidget(cellInspector_);
+  inspectLayout->addStretch();
+  right->addTab(inspectorPage_, "Inspector");
+  split->setSizes({280, 710, 425});
   auto *activity = new QFrame;
+  activity_ = activity;
   activity->setStyleSheet("QFrame{background:#1E293B;border:1px solid #334155;"
                           "border-radius:8px;} QLabel{border:0;}");
   activity->setFixedHeight(145);
@@ -385,7 +414,15 @@ void MainWindow::setEditing(bool enabled) {
     render(Snapshot{scenario_});
   }
   editing_ = enabled;
-  tool_->setVisible(enabled);
+  leftTabs_->setTabVisible(leftTabs_->indexOf(toolsPage_), enabled);
+  rightTabs_->setTabVisible(rightTabs_->indexOf(inspectorPage_), enabled);
+  leftTabs_->setCurrentIndex(enabled ? leftTabs_->indexOf(toolsPage_) : 0);
+  rightTabs_->setCurrentIndex(enabled ? rightTabs_->indexOf(inspectorPage_)
+                                      : 0);
+  activity_->setVisible(!enabled);
+  view_->selectCell({});
+  cellInspector_->setText(
+      "Selecciona una celda para consultar sus propiedades.");
   editor_->setText(enabled ? "Cerrar editor" : "Editar mapa");
   if (enabled)
     status_->setText("Elige una herramienta y haz clic en el plano. Clic "
@@ -746,6 +783,7 @@ void MainWindow::inspectCell(Position p) {
 }
 void MainWindow::editCell(Position p, bool erase) {
   try {
+    view_->selectCell(p);
     auto tool = erase ? EditorTool::Erase
                       : static_cast<EditorTool>(tool_->currentIndex());
     if (tool == EditorTool::Inspect)
@@ -759,6 +797,7 @@ void MainWindow::editCell(Position p, bool erase) {
       ScenarioEditor::place(scenario_, p, tool, weight);
     } else
       ScenarioEditor::place(scenario_, p, tool);
+    showCell(p);
     render(Snapshot{scenario_});
     status_->setText(
         QString("Celda (%1,%2) actualizada. Valida antes de iniciar.")
@@ -767,5 +806,26 @@ void MainWindow::editCell(Position p, bool erase) {
   } catch (const std::exception &error) {
     QMessageBox::warning(this, "No se pudo editar", error.what());
   }
+}
+void MainWindow::showCell(Position p) {
+  QString detail = QString("Columna %1 · Fila %2").arg(p.x + 1).arg(p.y + 1);
+  for (const auto &shelf : scenario_.shelves)
+    if (shelf.position == p)
+      detail += QString("\n\nEstante %1\nCapacidad %2")
+                    .arg(QString::fromStdString(shelf.id))
+                    .arg(shelf.capacity);
+  for (const auto &robot : scenario_.robots)
+    if (robot.position == p)
+      detail += QString("\n\nRobot %1\nBatería inicial %2 u.")
+                    .arg(QString::fromStdString(robot.id))
+                    .arg(robot.battery);
+  for (const auto &station : scenario_.stations)
+    if (station.position == p)
+      detail += QString("\n\nEstación %1\nCapacidad de servicio · 1 robot")
+                    .arg(QString::fromStdString(station.id));
+  if (std::find(scenario_.obstacles.begin(), scenario_.obstacles.end(), p) !=
+      scenario_.obstacles.end())
+    detail += "\n\nObstáculo";
+  cellInspector_->setText(detail);
 }
 } // namespace simra

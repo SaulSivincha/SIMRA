@@ -12,6 +12,7 @@ struct RouteOverlay {
 class WarehouseView final : public QGraphicsView {
   QGraphicsScene *scene_;
   std::function<void(Position, bool)> editHandler_;
+  std::optional<Position> selectedCell_;
   int width_{}, height_;
   static constexpr int Cell = 52;
   void fitMap();
@@ -22,6 +23,9 @@ protected:
 
 public:
   explicit WarehouseView(QWidget *parent = nullptr);
+  void selectCell(std::optional<Position> selected) {
+    selectedCell_ = selected;
+  }
   void setEditHandler(std::function<void(Position, bool)> handler) {
     editHandler_ = std::move(handler);
   }

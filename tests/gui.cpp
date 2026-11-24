@@ -1,6 +1,8 @@
 #include "check.hpp"
 #include "simra/window.hpp"
 #include <QApplication>
+#include <QComboBox>
+#include <QLabel>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTest>
@@ -20,6 +22,18 @@ int main(int argc, char **argv) {
   QTest::mouseClick(openEditor, Qt::LeftButton);
   auto *edit = button("editScenario");
   CHECK(edit->isVisible() && edit->text() == "Cerrar editor");
+  auto *tool = window.findChild<QComboBox *>("editorTool");
+  auto *inspector = window.findChild<QLabel *>("cellInspector");
+  auto *map = window.findChild<QGraphicsView *>("warehouseMap");
+  CHECK(tool && tool->isVisible() && inspector && inspector->isVisible() &&
+        map);
+  tool->setCurrentText("Obstáculo");
+  QTest::mouseClick(map->viewport(), Qt::LeftButton, Qt::NoModifier,
+                    map->viewport()->rect().center());
+  CHECK(inspector->text().contains("Obstáculo"));
+  QTest::mouseClick(map->viewport(), Qt::RightButton, Qt::NoModifier,
+                    map->viewport()->rect().center());
+  CHECK(!inspector->text().contains("Obstáculo"));
   auto *start = button("startSimulation");
   auto *pause = button("pauseSimulation");
   auto *stop = button("stopSimulation");

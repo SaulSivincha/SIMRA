@@ -164,6 +164,11 @@ void WarehouseView::render(const Snapshot &snapshot,
         x + 9, y + Cell - 8, (Cell - 18) * fraction, 4, Qt::NoPen,
         QBrush(fraction < .25 ? QColor("#EF4444") : QColor("#22C55E")));
   }
+  if (selectedCell_) {
+    auto x = selectedCell_->x * Cell, y = selectedCell_->y * Cell;
+    scene_->addRect(x + 1, y + 1, Cell - 2, Cell - 2,
+                    QPen(QColor("#2563EB"), 3), Qt::NoBrush);
+  }
   fitMap();
 }
 } // namespace simra

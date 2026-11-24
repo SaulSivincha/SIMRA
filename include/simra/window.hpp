@@ -33,8 +33,11 @@ class MainWindow final : public QMainWindow {
   QLabel *status_{};
   QLabel *summary_{};
   QLabel *concurrencySummary_{}, *resources_{};
+  QLabel *cellInspector_{};
   QTimer *timer_{};
+  QTabWidget *leftTabs_{};
   QTabWidget *rightTabs_{};
+  QWidget *toolsPage_{}, *inspectorPage_{}, *activity_{};
   QStackedWidget *pages_{};
   QWidget *workspace_{};
   ScenarioHub *hub_{};
@@ -53,6 +56,7 @@ class MainWindow final : public QMainWindow {
   void addSampleOrders();
   void editCell(Position, bool);
   void inspectCell(Position);
+  void showCell(Position);
 
 public:
   explicit MainWindow(QWidget *parent = nullptr);
