@@ -35,14 +35,18 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
                                         "Pasillo congestionado",
                                         "Competencia por recarga"};
   const std::array<QString, 4> descriptions = {
-      "<b>Demuestra: multihilo real.</b> Dos robots avanzan y atienden "
-      "pedidos al mismo tiempo.",
-      "<b>Demuestra: herencia y polimorfismo.</b> Un robot ligero y uno "
-      "pesado responden distinto ante la misma tarea.",
-      "<b>Demuestra: mutex y exclusión mutua.</b> Los robots esperan su "
-      "turno para cruzar zonas compartidas.",
-      "<b>Demuestra: sincronización de recursos.</b> Varios robots reservan "
-      "y comparten un cargador."};
+      "• <b>Hilos:</b> un hilo de ejecución por robot.<br>"
+      "• <b>Cola segura:</b> pedidos compartidos entre hilos.<br>"
+      "• <b>Encapsulación:</b> estado propio de cada robot.",
+      "• <b>Herencia:</b> LightRobot y HeavyRobot especializan Robot.<br>"
+      "• <b>Polimorfismo:</b> una interfaz común para la flota.<br>"
+      "• <b>Factory:</b> creación de robots y estaciones compatibles.",
+      "• <b>Mutex:</b> protege cada celda o recurso reservado.<br>"
+      "• <b>Exclusión mutua:</b> un solo robot por zona crítica.<br>"
+      "• <b>Coordinación:</b> espera y liberación de recursos.",
+      "• <b>Recurso compartido:</b> estación de recarga.<br>"
+      "• <b>Reserva exclusiva:</b> un robot usa el cargador a la vez.<br>"
+      "• <b>Sincronización:</b> espera hasta que el recurso se libere."};
   for (int index = 0; index < int(names.size()); ++index) {
     auto *card = new QFrame;
     card->setStyleSheet("QFrame{background:#1E293B;border:1px solid "
