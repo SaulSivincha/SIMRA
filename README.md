@@ -22,8 +22,7 @@ En algunos escritorios KDE, la captura sin pantalla requiere `QT_QPA_PLATFORMTHE
 1. Elige una demostración desde Inicio.
 2. Pulsa **Iniciar demostración**. Se preparan una entrega y una reposición con la mercancía disponible.
 3. Observa el desplazamiento, la ruta discontinua, la caja amarilla y la batería de cada robot. La explicación sobre el mapa indica el concepto del escenario.
-4. Usa **Pausar/Reanudar** para examinar los estados o **Detener** para finalizar.
-5. El editor permite modificar el mapa. El menú **Herramientas** reúne JSON, clonación, configuración y comparación.
+4. Usa **Pausar/Reanudar** para examinar un estado. Vuelve a **Inicio** para elegir otra demostración; la ejecución anterior termina de forma segura.
 
 
 El ejecutable de comparación también se puede usar en terminal:
@@ -45,8 +44,8 @@ La especificación original y los doce PDF del curso se consultaron localmente. 
 
 ## Estado de alcance
 
-P0 tiene núcleo funcional: dos tipos de robot, hilos reales, entrega y reposición, inventario, BFS, ocupación exclusiva, batería/recarga, controles, cinco patrones y pruebas. P1 incluye editor básico, cuatro escenarios, JSON, clonación, prioridades con envejecimiento, generación automática, detección de espera mutua, maniobra de cesión, monitor, métricas y comparación controlada. Las limitaciones exactas están en [docs/limitations.md](docs/limitations.md); P2 queda sin implementar.
+P0 tiene núcleo funcional: dos tipos de robot, hilos reales, entrega y reposición, inventario, BFS, ocupación exclusiva, batería/recarga, controles, cinco patrones y pruebas. P1 incluye cuatro escenarios guiados, prioridades con envejecimiento, generación automática, detección de espera mutua, maniobra de cesión, monitor, métricas y comparación controlada por terminal. Las limitaciones exactas están en [docs/limitations.md](docs/limitations.md); P2 queda sin implementar.
 
 ## Capturas
 
-[Inicio](docs/screenshot-home.png) · [Editor](docs/screenshot-editor.png) · [Simulación](docs/screenshot-simulation.png) · [Estadísticas](docs/screenshot-statistics.png) · [Comparación](docs/screenshot-comparison.png)
+[Inicio](docs/screenshot-home.png) · [Simulación](docs/screenshot-simulation.png) · [Estadísticas](docs/screenshot-statistics.png) · [Comparación](docs/screenshot-comparison.png)

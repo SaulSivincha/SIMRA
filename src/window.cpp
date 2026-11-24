@@ -1,29 +1,19 @@
 #include "simra/window.hpp"
 #include "simra/scenario_hub.hpp"
 #include <QComboBox>
-#include <QCoreApplication>
 #include <QDateTime>
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QFileDialog>
-#include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QInputDialog>
 #include <QLabel>
-#include <QMenu>
 #include <QMessageBox>
-#include <QProcess>
 #include <QPushButton>
-#include <QSpinBox>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QTextEdit>
 #include <QTimer>
-#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace simra {
@@ -92,10 +82,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   workspace_ = new QWidget;
   pages_->addWidget(workspace_);
   hub_ = new ScenarioHub(
-      [this](int index, bool edit) {
+      [this](int index) {
         scenarios_->setCurrentIndex(index);
         loadPreset();
-        setEditing(edit);
         pages_->setCurrentWidget(workspace_);
       });
   pages_->addWidget(hub_);
@@ -111,113 +100,27 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   scenarios_->addItem("Mutex: pasillo compartido", "congestion");
   scenarios_->addItem("Sincronización: recarga compartida", "charging");
   toolbar->addWidget(scenarios_);
-  auto *advancedMenu = new QMenu(this);
-  auto *advanced = new QToolButton;
-  advanced->setText("Herramientas");
-  advanced->setPopupMode(QToolButton::InstantPopup);
-  advanced->setMenu(advancedMenu);
-  QHBoxLayout *buttonRow = toolbar;
-  auto button = [&](QString text, auto action) {
-    auto *b = new QPushButton(text, workspace_);
-    if (text == "Abrir JSON" || text == "Guardar JSON" || text == "Clonar" ||
-        text == "Configurar" || text == "Validar" || text == "Nuevo pedido" ||
-        text == "Comparar 2/3") {
-      b->hide();
-      auto *entry = advancedMenu->addAction(text);
-      connect(entry, &QAction::triggered, b, &QPushButton::click);
-    } else {
-      buttonRow->addWidget(b);
-    }
-    connect(b, &QPushButton::clicked, this, action);
-    return b;
-  };
-  button("Inicio", [this] { pages_->setCurrentWidget(hub_); });
-  button("Cargar escenario", [this] { loadPreset(); });
-  button("Abrir JSON", [this] { openScenario(); });
-  button("Guardar JSON", [this] {
-    auto f = QFileDialog::getSaveFileName(this, "Guardar escenario", {},
-                                          "JSON (*.json)");
-    if (f.isEmpty())
-      return;
-    try {
-      saveScenario(scenario_, f.toStdString());
-      status_->setText("Escenario guardado");
-    } catch (const std::exception &e) {
-      QMessageBox::warning(this, "Error", e.what());
-    }
-  });
-  button("Clonar", [this] {
+  auto *home = new QPushButton("Inicio", workspace_);
+  home->setObjectName("homeScreen");
+  connect(home, &QPushButton::clicked, this, [this] {
     if (engine_ && !engine_->state().stopped())
-      return;
-    auto clone = scenario_.clone();
-    clone->name += "_copia";
-    scenario_ = *clone;
-    status_->setText("Configuración clonada de forma independiente");
+      stopSimulation();
+    pages_->setCurrentWidget(hub_);
   });
-  button("Configurar", [this] {
-    if (engine_ && !engine_->state().stopped()) {
-      QMessageBox::information(
-          this, "SIMRA", "Carga un escenario para editar su configuración.");
-      return;
-    }
-    QDialog dialog(this);
-    dialog.setWindowTitle("Configuración del escenario");
-    QFormLayout form(&dialog);
-    auto spin = [&](int minimum, int maximum, int value, QString label) {
-      auto *box = new QSpinBox(&dialog);
-      box->setRange(minimum, maximum);
-      box->setValue(value);
-      form.addRow(label, box);
-      return box;
-    };
-    auto *width = spin(8, 30, scenario_.width, "Ancho (celdas)");
-    auto *height = spin(8, 20, scenario_.height, "Alto (celdas)");
-    auto *seed = spin(0, 999999, scenario_.seed, "Semilla");
-    auto *interval = spin(100, 60000, scenario_.generationIntervalMs,
-                          "Generación automática (ms)");
-    QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    form.addRow(&buttons);
-    connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-    if (dialog.exec() != QDialog::Accepted)
-      return;
-    try {
-      auto candidate = scenario_;
-      ScenarioEditor::resize(candidate, width->value(), height->value());
-      candidate.seed = seed->value();
-      candidate.generationIntervalMs = interval->value();
-      scenario_ = std::move(candidate);
-      engine_.reset();
-      render(Snapshot{scenario_});
-      status_->setText("Configuración actualizada. Valida antes de iniciar.");
-    } catch (const std::exception &error) {
-      QMessageBox::warning(this, "Configuración inválida", error.what());
-    }
-  });
-  button("Validar", [this] {
-    try {
-      scenario_.validate();
-      QMessageBox::information(this, "SIMRA", "Escenario válido para iniciar.");
-    } catch (const std::exception &error) {
-      QMessageBox::warning(this, "Escenario inválido", error.what());
-    }
-  });
-  buttonRow = new QHBoxLayout;
+  toolbar->addWidget(home);
+  auto *buttonRow = new QHBoxLayout;
   root->addLayout(buttonRow);
-  editor_ = button("Editar mapa", [this] { setEditing(!editing_); });
-  editor_->setObjectName("editScenario");
-  tool_ = new QComboBox;
-  tool_->setObjectName("editorTool");
-  tool_->addItems({"Seleccionar", "Estante", "Obstáculo", "Robot ligero",
-                   "Robot pesado", "Recarga ligera", "Recarga industrial",
-                   "Entrega", "Recepción", "Mercancía", "Borrar"});
-  start_ = button("Iniciar demostración", [this] {
+  start_ = new QPushButton("Iniciar demostración", workspace_);
+  buttonRow->addWidget(start_);
+  connect(start_, &QPushButton::clicked, this, [this] {
     startSimulation();
     if (engine_)
       addSampleOrders();
   });
   start_->setObjectName("startSimulation");
-  pause_ = button("Pausar", [this] {
+  pause_ = new QPushButton("Pausar", workspace_);
+  buttonRow->addWidget(pause_);
+  connect(pause_, &QPushButton::clicked, this, [this] {
     if (!engine_)
       return;
     bool paused = engine_->state().snapshot().paused;
@@ -226,34 +129,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     status_->setText(paused ? "Simulación en ejecución" : "Simulación pausada");
   });
   pause_->setObjectName("pauseSimulation");
-  stop_ = button("Detener", [this] { stopSimulation(); });
-  stop_->setObjectName("stopSimulation");
-  button("Nuevo pedido", [this] { addOrder(); });
-  compare_ = button("Comparar 2/3", [this] {
-    comparison_->showRunning();
-    rightTabs_->setCurrentWidget(comparison_);
-    compare_->setEnabled(false);
-    auto *process = new QProcess(this);
-    auto program = QCoreApplication::applicationDirPath() + "/simra_compare";
-    connect(process, &QProcess::finished, this,
-            [this, process](int code, QProcess::ExitStatus) {
-              if (code == 0)
-                comparison_->showResult(process->readAllStandardOutput());
-              else
-                comparison_->showError(
-                    QString::fromUtf8(process->readAllStandardError()));
-              compare_->setEnabled(true);
-              process->deleteLater();
-            });
-    connect(process, &QProcess::errorOccurred, this,
-            [this](QProcess::ProcessError) {
-              comparison_->showError("no se pudo iniciar simra_compare");
-              compare_->setEnabled(true);
-            });
-    process->start(program, {"--json", QString(SIMRA_SOURCE_DIR) +
-                                           "/scenarios/basic.json"});
-  });
-  toolbar->addWidget(advanced);
   concept_ = new QLabel;
   concept_->setObjectName("demonstrationGuide");
   concept_->setWordWrap(true);
@@ -269,48 +144,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   orders_->setObjectName("ordersTable");
   left->addTab(orders_, "Pedidos");
   inventory_ = table({"Mercancía", "Kg", "Ubicación"});
-  connect(inventory_, &QTableWidget::cellDoubleClicked, this,
-          [this](int row, int) {
-            if (engine_)
-              return;
-            auto *item = inventory_->item(row, 0);
-            if (!item)
-              return;
-            auto id = item->text().toStdString();
-            auto cargo =
-                std::find_if(scenario_.cargo.begin(), scenario_.cargo.end(),
-                             [&](auto &c) { return c.id == id; });
-            if (cargo == scenario_.cargo.end())
-              return;
-            bool ok = false;
-            int weight =
-                QInputDialog::getInt(this, "Mercancía " + item->text(),
-                                     "Peso (kg)", cargo->weight, 1, 50, 1, &ok);
-            if (ok) {
-              ScenarioEditor::setCargoWeight(scenario_, id, weight);
-              render(Snapshot{scenario_});
-            }
-          });
   left->addTab(inventory_, "Inventario");
-  toolsPage_ = new QWidget;
-  auto *toolLayout = new QVBoxLayout(toolsPage_);
-  auto *toolHeading = new QLabel("Herramientas del mapa");
-  toolHeading->setStyleSheet("font-weight:700;font-size:15px;");
-  toolLayout->addWidget(toolHeading);
-  toolLayout->addWidget(tool_);
-  auto *toolHelp = new QLabel(
-      "Clic para colocar o inspeccionar.\nClic derecho para borrar.");
-  toolHelp->setWordWrap(true);
-  toolHelp->setStyleSheet("color:#9CB1CC;");
-  toolLayout->addWidget(toolHelp);
-  toolLayout->addStretch();
-  left->addTab(toolsPage_, "Herramientas");
   view_ = new WarehouseView;
   view_->setObjectName("warehouseMap");
-  view_->setEditHandler([this](Position p, bool erase) {
-    if (editing_ && !engine_)
-      editCell(p, erase);
-  });
   split->addWidget(view_);
   rightTabs_ = new QTabWidget;
   auto *right = rightTabs_;
@@ -343,22 +179,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   right->addTab(metrics_, "Estadísticas");
   comparison_ = new ComparisonPanel;
   right->addTab(comparison_, "Comparación");
-  inspectorPage_ = new QWidget;
-  auto *inspectLayout = new QVBoxLayout(inspectorPage_);
-  auto *inspectHeading = new QLabel("Propiedades de la celda");
-  inspectHeading->setStyleSheet("font-weight:700;font-size:15px;");
-  inspectLayout->addWidget(inspectHeading);
-  cellInspector_ = new QLabel;
-  cellInspector_->setObjectName("cellInspector");
-  cellInspector_->setTextFormat(Qt::PlainText);
-  cellInspector_->setWordWrap(true);
-  cellInspector_->setStyleSheet("color:#CBD5E1;padding:12px;");
-  inspectLayout->addWidget(cellInspector_);
-  inspectLayout->addStretch();
-  right->addTab(inspectorPage_, "Inspector");
   split->setSizes({280, 710, 425});
   auto *activity = new QFrame;
-  activity_ = activity;
   activity->setStyleSheet("QFrame{background:#1E293B;border:1px solid #334155;"
                           "border-radius:8px;} QLabel{border:0;}");
   activity->setFixedHeight(145);
@@ -388,48 +210,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   hub_->preview(scenario_);
   pages_->setCurrentWidget(hub_);
 }
-void MainWindow::openScenario() {
-  auto filename = QFileDialog::getOpenFileName(this, "Abrir escenario", {},
-                                               "JSON (*.json)");
-  if (filename.isEmpty())
-    return;
-  try {
-    auto candidate = loadScenario(filename.toStdString());
-    if (engine_)
-      stopSimulation();
-    engine_.reset();
-    scenario_ = std::move(candidate);
-    selectedRobot_.clear();
-    setEditing(false);
-    render(Snapshot{scenario_});
-    pages_->setCurrentWidget(workspace_);
-    status_->setText("Escenario validado");
-  } catch (const std::exception &error) {
-    QMessageBox::warning(this, "Escenario inválido", error.what());
-  }
-}
-void MainWindow::setEditing(bool enabled) {
-  if (engine_ && !engine_->state().stopped())
-    return;
-  if (enabled && engine_) {
-    engine_.reset();
-    render(Snapshot{scenario_});
-  }
-  editing_ = enabled;
-  leftTabs_->setTabVisible(leftTabs_->indexOf(toolsPage_), enabled);
-  rightTabs_->setTabVisible(rightTabs_->indexOf(inspectorPage_), enabled);
-  leftTabs_->setCurrentIndex(enabled ? leftTabs_->indexOf(toolsPage_) : 0);
-  rightTabs_->setCurrentIndex(enabled ? rightTabs_->indexOf(inspectorPage_)
-                                      : 0);
-  activity_->setVisible(!enabled);
-  view_->selectCell({});
-  cellInspector_->setText(
-      "Selecciona una celda para consultar sus propiedades.");
-  editor_->setText(enabled ? "Cerrar editor" : "Editar mapa");
-  if (enabled)
-    status_->setText("Elige una herramienta y haz clic en el plano. Clic "
-                     "derecho para borrar.");
-}
 void MainWindow::loadPreset() {
   try {
     auto path = QString(SIMRA_SOURCE_DIR) + "/scenarios/" +
@@ -440,12 +220,10 @@ void MainWindow::loadPreset() {
     engine_.reset();
     selectedRobot_.clear();
     scenario_ = std::move(candidate);
-    setEditing(false);
     render(Snapshot{scenario_});
     status_->setText("Escenario " + scenarios_->currentText() + " validado");
     start_->setEnabled(true);
     pause_->setEnabled(false);
-    stop_->setEnabled(false);
   } catch (const std::exception &e) {
     QMessageBox::warning(this, "Escenario inválido", e.what());
   }
@@ -457,14 +235,11 @@ void MainWindow::startSimulation() {
   }
   try {
     scenario_.validate();
-    setEditing(false);
     engine_ = std::make_unique<SimulationEngine>(scenario_);
     engine_->state().setSpeedPercent(100);
     engine_->start(false);
     start_->setEnabled(false);
     pause_->setEnabled(true);
-    stop_->setEnabled(true);
-    editor_->setEnabled(false);
     events_->clear();
     status_->setText("Simulación en ejecución");
   } catch (const std::exception &e) {
@@ -479,96 +254,10 @@ void MainWindow::stopSimulation() {
   engine_->stop();
   refresh();
   pause_->setEnabled(false);
-  stop_->setEnabled(false);
   start_->setEnabled(true);
-  editor_->setEnabled(true);
   pause_->setText("Pausar");
-  status_->setText("Simulación detenida; todos los hilos unidos");
-}
-void MainWindow::addOrder() {
-  if (!engine_ || engine_->state().snapshot().stopped) {
-    QMessageBox::information(this, "SIMRA",
-                             "Inicia una simulación para crear pedidos.");
-    return;
-  }
-  auto snap = engine_->state().snapshot();
-  QStringList available;
-  for (const auto &c : snap.cargo) {
-    const auto active = std::any_of(
-        snap.orders.begin(), snap.orders.end(), [&](const auto &order) {
-          return order.cargoId == c.id &&
-                 order.status != OrderStatus::Completed;
-        });
-    if (c.locationId != "DELIVERED" && !active)
-      available << QString::fromStdString(c.id);
-  }
-  if (available.empty()) {
-    QMessageBox::information(this, "SIMRA", "No hay mercancía disponible.");
-    return;
-  }
-  bool ok = false;
-  auto id = QInputDialog::getItem(this, "Nuevo pedido", "Mercancía", available,
-                                  0, false, &ok);
-  if (!ok)
-    return;
-  auto cargo = std::find_if(snap.cargo.begin(), snap.cargo.end(), [&](auto &c) {
-    return QString::fromStdString(c.id) == id;
-  });
-  bool reception = false;
-  for (auto &st : snap.scenario.stations)
-    if (st.id == cargo->locationId && st.kind == Terrain::Reception)
-      reception = true;
-  std::string destination;
-  if (reception) {
-    QStringList shelves;
-    for (const auto &s : snap.scenario.shelves) {
-      auto used = std::count_if(
-          snap.cargo.begin(), snap.cargo.end(),
-          [&](const auto &item) { return item.locationId == s.id; });
-      if (used < s.capacity)
-        shelves << QString::fromStdString(s.id);
-    }
-    if (shelves.empty()) {
-      QMessageBox::information(this, "Reposición",
-                               "No hay estantes con espacio libre.");
-      return;
-    }
-    auto target = QInputDialog::getItem(this, "Reposición", "Estante destino",
-                                        shelves, 0, false, &ok);
-    if (!ok)
-      return;
-    destination = target.toStdString();
-  } else {
-    QStringList stations;
-    for (const auto &station : snap.scenario.stations)
-      if (station.kind == Terrain::Delivery)
-        stations << QString::fromStdString(station.id);
-    if (stations.empty()) {
-      QMessageBox::information(this, "Entrega",
-                               "Agrega una estación de entrega al escenario.");
-      return;
-    }
-    destination = QInputDialog::getItem(this, "Entrega", "Estación de destino",
-                                        stations, 0, false, &ok)
-                      .toStdString();
-    if (!ok)
-      return;
-  }
-  int priority = QInputDialog::getInt(this, "Prioridad",
-                                      "0 baja · 1 normal · 2 alta · 3 urgente",
-                                      1, 0, 3, 1, &ok);
-  if (!ok)
-    return;
-  std::string orderId = "O" + std::to_string(nextOrder_++);
-  auto order = reception
-                   ? RestockOrderCreator().create(orderId, id.toStdString(),
-                                                  destination, priority)
-                   : DeliveryOrderCreator().create(orderId, id.toStdString(),
-                                                   destination, priority);
-  if (!engine_->state().addOrder(std::move(order)))
-    QMessageBox::warning(
-        this, "Pedido rechazado",
-        "La carga ya tiene un pedido activo o el destino no es válido.");
+  status_->setText(
+      "Demostración finalizada; los hilos terminaron de forma segura");
 }
 void MainWindow::startDemo() {
   pages_->setCurrentWidget(workspace_);
@@ -777,84 +466,5 @@ void MainWindow::render(const Snapshot &s) {
           .arg(pending)
           .arg(s.metrics.conflicts));
   metrics_->render(s);
-}
-void MainWindow::inspectCell(Position p) {
-  for (auto &shelf : scenario_.shelves)
-    if (shelf.position == p) {
-      bool accepted = false;
-      int capacity = QInputDialog::getInt(
-          this, "Estante " + QString::fromStdString(shelf.id), "Capacidad",
-          shelf.capacity, 1, 100, 1, &accepted);
-      if (accepted)
-        ScenarioEditor::setShelfCapacity(scenario_, shelf.id, capacity);
-      return;
-    }
-  for (auto &robot : scenario_.robots)
-    if (robot.position == p) {
-      bool accepted = false;
-      int maximum = robot.kind == RobotKind::Light ? 100 : 150;
-      int battery = QInputDialog::getInt(
-          this, "Robot " + QString::fromStdString(robot.id), "Batería inicial",
-          robot.battery, 0, maximum, 1, &accepted);
-      if (accepted)
-        ScenarioEditor::setRobotBattery(scenario_, robot.id, battery);
-      return;
-    }
-  for (auto &station : scenario_.stations)
-    if (station.position == p) {
-      QMessageBox::information(this, "Estación",
-                               "ID: " + QString::fromStdString(station.id) +
-                                   "\nCapacidad de servicio: 1 robot");
-      return;
-    }
-  status_->setText(
-      "Celda libre. Usa una herramienta para colocar un elemento.");
-}
-void MainWindow::editCell(Position p, bool erase) {
-  try {
-    view_->selectCell(p);
-    auto tool = erase ? EditorTool::Erase
-                      : static_cast<EditorTool>(tool_->currentIndex());
-    if (tool == EditorTool::Inspect)
-      inspectCell(p);
-    else if (tool == EditorTool::Cargo) {
-      bool accepted = false;
-      int weight = QInputDialog::getInt(this, "Nueva mercancía", "Peso (kg)", 5,
-                                        1, 50, 1, &accepted);
-      if (!accepted)
-        return;
-      ScenarioEditor::place(scenario_, p, tool, weight);
-    } else
-      ScenarioEditor::place(scenario_, p, tool);
-    showCell(p);
-    render(Snapshot{scenario_});
-    status_->setText(
-        QString("Celda (%1,%2) actualizada. Valida antes de iniciar.")
-            .arg(p.x)
-            .arg(p.y));
-  } catch (const std::exception &error) {
-    QMessageBox::warning(this, "No se pudo editar", error.what());
-  }
-}
-void MainWindow::showCell(Position p) {
-  QString detail = QString("Columna %1 · Fila %2").arg(p.x + 1).arg(p.y + 1);
-  for (const auto &shelf : scenario_.shelves)
-    if (shelf.position == p)
-      detail += QString("\n\nEstante %1\nCapacidad %2")
-                    .arg(QString::fromStdString(shelf.id))
-                    .arg(shelf.capacity);
-  for (const auto &robot : scenario_.robots)
-    if (robot.position == p)
-      detail += QString("\n\nRobot %1\nBatería inicial %2 u.")
-                    .arg(QString::fromStdString(robot.id))
-                    .arg(robot.battery);
-  for (const auto &station : scenario_.stations)
-    if (station.position == p)
-      detail += QString("\n\nEstación %1\nCapacidad de servicio · 1 robot")
-                    .arg(QString::fromStdString(station.id));
-  if (std::find(scenario_.obstacles.begin(), scenario_.obstacles.end(), p) !=
-      scenario_.obstacles.end())
-    detail += "\n\nObstáculo";
-  cellInspector_->setText(detail);
 }
 } // namespace simra

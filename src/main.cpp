@@ -1,7 +1,6 @@
 #include "simra/window.hpp"
 #include <QApplication>
 #include <QFile>
-#include <QPushButton>
 #include <QString>
 #include <QTimer>
 int main(int argc, char **argv) {
@@ -15,8 +14,6 @@ int main(int argc, char **argv) {
       window.startDemo();
       if (mode == "--screenshot-stats")
         window.showStatistics();
-    } else if (mode == "--screenshot-editor") {
-      window.findChild<QPushButton *>("openEditor")->click();
     } else if (mode == "--screenshot-comparison" && argc == 4) {
       QFile file(QString::fromLocal8Bit(argv[2]));
       if (!file.open(QIODevice::ReadOnly))

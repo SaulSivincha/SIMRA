@@ -8,8 +8,7 @@
 #include <array>
 
 namespace simra {
-ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
-                         QWidget *parent)
+ScenarioHub::ScenarioHub(std::function<void(int)> openPreset, QWidget *parent)
     : QWidget(parent) {
   auto *page = new QVBoxLayout(this);
   page->setContentsMargins(36, 30, 36, 30);
@@ -22,8 +21,8 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
   subtitle->setStyleSheet("font-size:19px;color:#9CB1CC;");
   page->addWidget(subtitle);
   auto *instruction = new QLabel(
-      "Elige una demostración. Cada una muestra un concepto distinto de "
-      "programación concurrente y objetos.");
+      "Elige un escenario. Cada tarjeta enumera los conceptos de "
+      "programación concurrente y objetos que contiene.");
   instruction->setStyleSheet("color:#A8B8CE;");
   instruction->setWordWrap(true);
   page->addWidget(instruction);
@@ -57,7 +56,7 @@ ScenarioHub::ScenarioHub(std::function<void(int, bool)> openPreset,
     button->setObjectName(QString("preset%1").arg(index));
     button->setStyleSheet("text-align:left;font-size:15px;font-weight:700;");
     connect(button, &QPushButton::clicked, this,
-            [openPreset, index] { openPreset(index, false); });
+            [openPreset, index] { openPreset(index); });
     cardLayout->addWidget(button);
     auto *text = new QLabel(descriptions[index]);
     text->setObjectName(QString("scenarioConcept%1").arg(index));

@@ -11,7 +11,7 @@ class ScenarioHub final : public QWidget {
   QLabel *description_{};
 
 public:
-  explicit ScenarioHub(std::function<void(int, bool)> openPreset,
+  explicit ScenarioHub(std::function<void(int)> openPreset,
                        QWidget *parent = nullptr);
   void preview(const Scenario &scenario);
 };

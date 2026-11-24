@@ -1,7 +1,6 @@
 #include "check.hpp"
 #include "simra/window.hpp"
 #include <QApplication>
-#include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QTableWidget>
@@ -28,27 +27,19 @@ int main(int argc, char **argv) {
   CHECK(chargingConcept &&
         chargingConcept->text().contains("Reserva exclusiva"));
   QTest::mouseClick(basicDemo, Qt::LeftButton);
-  auto *edit = button("editScenario");
-  QTest::mouseClick(edit, Qt::LeftButton);
-  CHECK(edit->isVisible() && edit->text() == "Cerrar editor");
-  auto *tool = window.findChild<QComboBox *>("editorTool");
-  auto *inspector = window.findChild<QLabel *>("cellInspector");
   auto *map = window.findChild<QGraphicsView *>("warehouseMap");
-  CHECK(tool && tool->isVisible() && inspector && inspector->isVisible() &&
-        map);
-  tool->setCurrentText("Obstáculo");
-  QTest::mouseClick(map->viewport(), Qt::LeftButton, Qt::NoModifier,
-                    map->viewport()->rect().center());
-  CHECK(inspector->text().contains("Obstáculo"));
-  QTest::mouseClick(map->viewport(), Qt::RightButton, Qt::NoModifier,
-                    map->viewport()->rect().center());
-  CHECK(!inspector->text().contains("Obstáculo"));
+  CHECK(map && map->isVisible());
   auto *start = button("startSimulation");
   auto *pause = button("pauseSimulation");
-  auto *stop = button("stopSimulation");
-  CHECK(start->isEnabled() && !pause->isEnabled() && !stop->isEnabled());
+  CHECK(start->isEnabled() && !pause->isEnabled());
+  for (auto *control : window.findChildren<QPushButton *>()) {
+    CHECK(control->text() != "Cargar escenario");
+    CHECK(control->text() != "Herramientas");
+    CHECK(control->text() != "Editar mapa");
+    CHECK(control->text() != "Detener");
+  }
   QTest::mouseClick(start, Qt::LeftButton);
-  CHECK(!start->isEnabled() && !edit->isEnabled());
+  CHECK(!start->isEnabled());
   auto *orders = window.findChild<QTableWidget *>("ordersTable");
   CHECK(orders);
   CHECK(QTest::qWaitFor([&] { return orders->rowCount() == 2; }));
@@ -66,7 +57,7 @@ int main(int argc, char **argv) {
   CHECK(pause->text() == "Reanudar");
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Pausar");
-  QTest::mouseClick(stop, Qt::LeftButton);
-  CHECK(start->isEnabled() && edit->isEnabled() && !stop->isEnabled());
-  CHECK(workers->item(0, 1)->text() == "Detenido");
+  auto *home = button("homeScreen");
+  QTest::mouseClick(home, Qt::LeftButton);
+  CHECK(basicDemo->isVisible());
 }
