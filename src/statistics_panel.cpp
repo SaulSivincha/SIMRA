@@ -15,8 +15,7 @@ StatisticsPanel::StatisticsPanel(QWidget *parent) : QWidget(parent) {
   QStringList labels = {"Hilos activos", "Hilos en espera",
                         "Buffer de trabajo", "Recursos exclusivos libres",
                         "Recursos reservados", "Conflictos de mutex",
-                        "Ciclos de espera", "Robots bloqueados",
-                        "Batería disponible", "Recargas realizadas"};
+                        "Ciclos de espera", "Robots bloqueados"};
   for (int i = 0; i < int(values_.size()); ++i) {
     auto *tile = new QFrame;
     tile->setStyleSheet(
@@ -40,14 +39,11 @@ void StatisticsPanel::render(const Snapshot &snapshot) {
     buffer += order.status != OrderStatus::Completed &&
               order.status != OrderStatus::Blocked;
   }
-  int battery = 0, maxBattery = 0;
   for (auto &robot : snapshot.robots) {
     active += !robot.threadId.empty() && robot.status != RobotStatus::Stopped;
     waiting += robot.status == RobotStatus::Waiting ||
                robot.status == RobotStatus::Blocked;
     blocked += robot.status == RobotStatus::Blocked;
-    battery += robot.battery;
-    maxBattery += robot.maxBattery;
   }
   const int resources = int(std::count_if(
       snapshot.scenario.stations.begin(), snapshot.scenario.stations.end(),
@@ -67,9 +63,7 @@ void StatisticsPanel::render(const Snapshot &snapshot) {
       QString::number(reserved),
       QString::number(m.conflicts),
       QString::number(m.cycles),
-      QString::number(blocked),
-      QString::number(battery) + " / " + QString::number(maxBattery),
-      QString::number(m.recharges)};
+      QString::number(blocked)};
   for (int i = 0; i < int(values_.size()); ++i)
     values_[i]->setText(values[i]);
 }

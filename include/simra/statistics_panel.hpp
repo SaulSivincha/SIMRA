@@ -5,7 +5,7 @@
 class QLabel;
 namespace simra {
 class StatisticsPanel final : public QWidget {
-  std::array<QLabel *, 10> values_{};
+  std::array<QLabel *, 8> values_{};
 
 public:
   explicit StatisticsPanel(QWidget *parent = nullptr);
