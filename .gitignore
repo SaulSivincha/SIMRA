@@ -1,0 +1,4 @@
+build*/
+SIMRA_especificacion/
+*.user
+*.log

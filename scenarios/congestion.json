@@ -1,0 +1,285 @@
+{
+  "version": 1,
+  "name": "congestion",
+  "width": 14,
+  "height": 10,
+  "seed": 42,
+  "generationIntervalMs": 1800,
+  "shelves": [
+    {
+      "id": "S01",
+      "position": {
+        "x": 2,
+        "y": 2
+      },
+      "capacity": 5
+    },
+    {
+      "id": "S02",
+      "position": {
+        "x": 4,
+        "y": 2
+      },
+      "capacity": 5
+    },
+    {
+      "id": "S03",
+      "position": {
+        "x": 7,
+        "y": 2
+      },
+      "capacity": 5
+    },
+    {
+      "id": "S04",
+      "position": {
+        "x": 2,
+        "y": 6
+      },
+      "capacity": 5
+    },
+    {
+      "id": "S05",
+      "position": {
+        "x": 4,
+        "y": 6
+      },
+      "capacity": 5
+    },
+    {
+      "id": "S06",
+      "position": {
+        "x": 7,
+        "y": 6
+      },
+      "capacity": 5
+    }
+  ],
+  "obstacles": [
+    {
+      "x": 3,
+      "y": 4
+    },
+    {
+      "x": 4,
+      "y": 4
+    },
+    {
+      "x": 5,
+      "y": 4
+    },
+    {
+      "x": 7,
+      "y": 4
+    },
+    {
+      "x": 8,
+      "y": 4
+    },
+    {
+      "x": 9,
+      "y": 4
+    },
+    {
+      "x": 10,
+      "y": 4
+    },
+    {
+      "x": 11,
+      "y": 4
+    }
+  ],
+  "robots": [
+    {
+      "id": "R01",
+      "type": "LIGHT",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "battery": 100
+    },
+    {
+      "id": "R02",
+      "type": "LIGHT",
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "battery": 100
+    },
+    {
+      "id": "R03",
+      "type": "LIGHT",
+      "position": {
+        "x": 0,
+        "y": 4
+      },
+      "battery": 100
+    },
+    {
+      "id": "R04",
+      "type": "LIGHT",
+      "position": {
+        "x": 0,
+        "y": 6
+      },
+      "battery": 100
+    },
+    {
+      "id": "R05",
+      "type": "LIGHT",
+      "position": {
+        "x": 0,
+        "y": 8
+      },
+      "battery": 100
+    },
+    {
+      "id": "R06",
+      "type": "LIGHT",
+      "position": {
+        "x": 1,
+        "y": 9
+      },
+      "battery": 100
+    }
+  ],
+  "chargingStations": [
+    {
+      "id": "C01",
+      "type": "LIGHT",
+      "position": {
+        "x": 13,
+        "y": 8
+      },
+      "capacity": 1
+    }
+  ],
+  "deliveryStations": [
+    {
+      "id": "D01",
+      "position": {
+        "x": 13,
+        "y": 2
+      },
+      "capacity": 1
+    }
+  ],
+  "receptionStations": [
+    {
+      "id": "P01",
+      "position": {
+        "x": 0,
+        "y": 5
+      },
+      "capacity": 1
+    }
+  ],
+  "cargo": [
+    {
+      "id": "K01",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S01"
+      }
+    },
+    {
+      "id": "K02",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S02"
+      }
+    },
+    {
+      "id": "K03",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S03"
+      }
+    },
+    {
+      "id": "K04",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S04"
+      }
+    },
+    {
+      "id": "K05",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S05"
+      }
+    },
+    {
+      "id": "K06",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S06"
+      }
+    },
+    {
+      "id": "K07",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S01"
+      }
+    },
+    {
+      "id": "K08",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S02"
+      }
+    },
+    {
+      "id": "K09",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S03"
+      }
+    },
+    {
+      "id": "K10",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S04"
+      }
+    },
+    {
+      "id": "K11",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S05"
+      }
+    },
+    {
+      "id": "K12",
+      "weightKg": 5,
+      "location": {
+        "type": "SHELF",
+        "id": "S06"
+      }
+    },
+    {
+      "id": "K_IN",
+      "weightKg": 5,
+      "location": {
+        "type": "RECEPTION",
+        "id": "P01"
+      }
+    }
+  ]
+}
