@@ -12,6 +12,7 @@
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
@@ -22,6 +23,7 @@
 #include <QTableWidget>
 #include <QTextEdit>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace simra {
@@ -110,10 +112,23 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   scenarios_->addItem("Congestión", "congestion");
   scenarios_->addItem("Competencia por recarga", "charging");
   toolbar->addWidget(scenarios_);
+  auto *advancedMenu = new QMenu(this);
+  auto *advanced = new QToolButton;
+  advanced->setText("Herramientas");
+  advanced->setPopupMode(QToolButton::InstantPopup);
+  advanced->setMenu(advancedMenu);
   QHBoxLayout *buttonRow = toolbar;
   auto button = [&](QString text, auto action) {
-    auto *b = new QPushButton(text);
-    buttonRow->addWidget(b);
+    auto *b = new QPushButton(text, workspace_);
+    if (text == "Abrir JSON" || text == "Guardar JSON" || text == "Clonar" ||
+        text == "Configurar" || text == "Validar" || text == "Nuevo pedido" ||
+        text == "Comparar 2/3") {
+      b->hide();
+      auto *entry = advancedMenu->addAction(text);
+      connect(entry, &QAction::triggered, b, &QPushButton::click);
+    } else {
+      buttonRow->addWidget(b);
+    }
     connect(b, &QPushButton::clicked, this, action);
     return b;
   };
@@ -197,25 +212,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   tool_->addItems({"Seleccionar", "Estante", "Obstáculo", "Robot ligero",
                    "Robot pesado", "Recarga ligera", "Recarga industrial",
                    "Entrega", "Recepción", "Mercancía", "Borrar"});
-  auto *automatic = button("Auto: no", [this] {
-    automatic_ = !automatic_;
-    auto *b = qobject_cast<QPushButton *>(sender());
-    b->setText(automatic_ ? "Auto: sí" : "Auto: no");
+  start_ = button("Iniciar demostración", [this] {
+    startSimulation();
+    if (engine_)
+      addSampleOrders();
   });
-  (void)automatic;
-  speed_ = new QComboBox;
-  speed_->addItem("0.25×", 25);
-  speed_->addItem("0.5×", 50);
-  speed_->addItem("1×", 100);
-  speed_->addItem("2×", 200);
-  speed_->addItem("4×", 400);
-  speed_->setCurrentIndex(2);
-  buttonRow->addWidget(speed_);
-  connect(speed_, &QComboBox::currentIndexChanged, this, [this] {
-    if (engine_ && !engine_->state().stopped())
-      engine_->state().setSpeedPercent(speed_->currentData().toInt());
-  });
-  start_ = button("Iniciar", [this] { startSimulation(); });
   start_->setObjectName("startSimulation");
   pause_ = button("Pausar", [this] {
     if (!engine_)
@@ -229,12 +230,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   stop_ = button("Detener", [this] { stopSimulation(); });
   stop_->setObjectName("stopSimulation");
   button("Nuevo pedido", [this] { addOrder(); });
-  button("Ejecutar ejemplo", [this] {
-    if (!engine_ || engine_->state().stopped())
-      startSimulation();
-    if (engine_ && !engine_->state().stopped())
-      addSampleOrders();
-  });
   compare_ = button("Comparar 2/3", [this] {
     comparison_->showRunning();
     rightTabs_->setCurrentWidget(comparison_);
@@ -259,12 +254,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     process->start(program, {"--json", QString(SIMRA_SOURCE_DIR) +
                                            "/scenarios/basic.json"});
   });
+  toolbar->addWidget(advanced);
+  concept_ = new QLabel;
+  concept_->setObjectName("demonstrationGuide");
+  concept_->setWordWrap(true);
+  concept_->setStyleSheet(
+      "background:#1E293B;color:#CBD5E1;padding:12px;border-radius:8px;");
+  root->addWidget(concept_);
   auto *split = new QSplitter(Qt::Horizontal);
   root->addWidget(split, 1);
   leftTabs_ = new QTabWidget;
   auto *left = leftTabs_;
   split->addWidget(left);
   orders_ = table({"Pedido", "Carga", "Tipo", "Estado", "Robot"});
+  orders_->setObjectName("ordersTable");
   left->addTab(orders_, "Pedidos");
   inventory_ = table({"Mercancía", "Kg", "Ubicación"});
   connect(inventory_, &QTableWidget::cellDoubleClicked, this,
@@ -457,8 +460,8 @@ void MainWindow::startSimulation() {
     scenario_.validate();
     setEditing(false);
     engine_ = std::make_unique<SimulationEngine>(scenario_);
-    engine_->state().setSpeedPercent(speed_->currentData().toInt());
-    engine_->start(automatic_);
+    engine_->state().setSpeedPercent(100);
+    engine_->start(false);
     start_->setEnabled(false);
     pause_->setEnabled(true);
     stop_->setEnabled(true);
@@ -670,6 +673,33 @@ void MainWindow::render(const Snapshot &s) {
       }
     }
   }
+  if (engine_ && !overlay) {
+    for (const auto &robot : s.robots) {
+      if (auto plan = engine_->state().taskPlan(robot.id)) {
+        auto target = robot.carrying.empty() ? plan->pickup : plan->destination;
+        if (auto route = engine_->state().route(robot.position, target, true,
+                                                robot.id)) {
+          overlay = RouteOverlay{robot.id, *route};
+          break;
+        }
+      }
+    }
+  }
+  const QStringList explanations = {
+      "Observa dos robots trabajando a la vez. Cada uno tiene su propio hilo. "
+      "Recogen mercancía junto al estante y la llevan a entrega o reposición.",
+      "Observa robots ligeros y pesados. El motor usa la misma interfaz Robot "
+      "y cada tipo define capacidad, consumo y velocidad mediante "
+      "polimorfismo.",
+      "Observa el paso por el pasillo compartido. El mutex permite ocupar una "
+      "celda a un solo robot. Las esperas aparecen en ámbar.",
+      "Observa la estación C. Los robots solicitan una reserva exclusiva, "
+      "esperan su turno y recuperan batería antes de salir."};
+  concept_->setText(explanations.value(scenarios_->currentIndex()) +
+                    (engine_ ? "\nLa línea discontinua muestra una ruta BFS. "
+                               "La caja amarilla indica mercancía en custodia."
+                             : "\nPulsa Iniciar demostración. Los pedidos de "
+                               "ejemplo se crean automáticamente."));
   view_->render(s, overlay);
   robots_->setRowCount(int(s.robots.size()));
   for (int i = 0; i < int(s.robots.size()); ++i) {

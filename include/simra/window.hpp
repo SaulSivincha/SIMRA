@@ -22,7 +22,6 @@ class MainWindow final : public QMainWindow {
   WarehouseView *view_{};
   QComboBox *scenarios_{};
   QComboBox *tool_{};
-  QComboBox *speed_{};
   QTableWidget *robots_{};
   QTableWidget *orders_{};
   QTableWidget *inventory_{};
@@ -32,6 +31,7 @@ class MainWindow final : public QMainWindow {
   StatisticsPanel *metrics_{};
   QLabel *status_{};
   QLabel *summary_{};
+  QLabel *concept_{};
   QLabel *concurrencySummary_{}, *resources_{};
   QLabel *cellInspector_{};
   QTimer *timer_{};
@@ -42,7 +42,7 @@ class MainWindow final : public QMainWindow {
   QWidget *workspace_{};
   ScenarioHub *hub_{};
   QPushButton *start_{}, *pause_{}, *stop_{}, *editor_{}, *compare_{};
-  bool editing_{}, automatic_{};
+  bool editing_{};
   int nextOrder_{1};
   std::string selectedRobot_;
   void render(const Snapshot &);

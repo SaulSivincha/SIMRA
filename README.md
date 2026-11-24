@@ -19,11 +19,12 @@ En algunos escritorios KDE, la captura sin pantalla requiere `QT_QPA_PLATFORMTHE
 
 ## Uso rápido
 
-1. Abre una de las cuatro plantillas desde Inicio. En el área de trabajo puedes cambiar de plantilla con **Cargar escenario**.
-2. Pulsa **Ejecutar ejemplo** para probar una entrega y una reposición. También puedes pulsar **Iniciar** y usar **Nuevo pedido** para escoger mercancía, destino y prioridad. **Auto: sí** crea solicitudes desde un hilo propio a la cadencia del JSON.
-3. Observa la cuadrícula, las tablas de pedidos y robots, los IDs de hilo, eventos y estadísticas. Ajusta velocidad de `0.25×` a `4×`. **Pausar/Reanudar** detiene los avances lógicos; **Detener** une los hilos.
-4. **Editar mapa** permite poner, inspeccionar o borrar elementos por clic. **Configurar** ajusta el tamaño y la generación automática. **Guardar JSON**, **Abrir JSON** y **Clonar** trabajan con la configuración, nunca con mutex o hilos.
-5. **Comparar 2/3** ejecuta en segundo plano dos experimentos del escenario básico, con los mismos tres pedidos iniciales y ocho segundos de horizonte. El resultado aparece en la pestaña Comparación.
+1. Elige una demostración desde Inicio.
+2. Pulsa **Iniciar demostración**. Se preparan una entrega y una reposición con la mercancía disponible.
+3. Observa el desplazamiento, la ruta discontinua, la caja amarilla y la batería de cada robot. La explicación sobre el mapa indica el concepto del escenario.
+4. Usa **Pausar/Reanudar** para examinar los estados o **Detener** para finalizar.
+5. El editor permite modificar el mapa. El menú **Herramientas** reúne JSON, clonación, configuración y comparación.
+
 
 El ejecutable de comparación también se puede usar en terminal:
 
