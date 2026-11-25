@@ -18,7 +18,7 @@ class MainWindow final : public QMainWindow {
   RobotMonitor *monitor_{};
   StatisticsPanel *metrics_{};
   QLabel *status_{}, *scenarioName_{};
-  QLabel *concept_{};
+  QLabel *concept_{}, *moment_{};
   QTimer *timer_{};
   QTabWidget *rightTabs_{};
   QStackedWidget *pages_{};
@@ -29,6 +29,7 @@ class MainWindow final : public QMainWindow {
   int nextOrder_{1};
   std::string selectedRobot_;
   void render(const Snapshot &);
+  void updateConceptMoment(const Snapshot &);
   void refresh();
   void loadPreset();
   void startSimulation();

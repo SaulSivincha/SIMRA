@@ -154,6 +154,13 @@ void WarehouseView::updateRoute(const Snapshot &snapshot,
   if (!hasPrevious)
     return;
   const QPen pen(color, 3, Qt::DashLine, Qt::RoundCap);
+  if (robotVisuals_.contains(route->robotId)) {
+    const auto visual = displayedPosition(route->robotId,
+                                          std::chrono::steady_clock::now());
+    routeItems_.push_back(scene_->addLine(
+        visual.x() + Cell / 2, visual.y() + Cell / 2,
+        previous.x * Cell + Cell / 2, previous.y * Cell + Cell / 2, pen));
+  }
   for (const auto next : route->cells) {
     routeItems_.push_back(scene_->addLine(
         previous.x * Cell + Cell / 2, previous.y * Cell + Cell / 2,
@@ -211,7 +218,7 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     const auto current = displayedPosition(robot.id, now);
     if (QLineF(current, target).length() > 0.1) {
       motions_[robot.id] = {current, target, now,
-                            robot.kind == RobotKind::Light ? 260 : 420};
+                            robot.kind == RobotKind::Light ? 340 : 540};
       animationTimer_->start();
     }
     QColor color = robot.kind == RobotKind::Light ? QColor("#2563EB")
