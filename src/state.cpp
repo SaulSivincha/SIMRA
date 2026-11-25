@@ -64,6 +64,7 @@ Snapshot WarehouseState::snapshot() const {
   s.paused = paused_;
   s.stopped = stopped_;
   s.version = version_;
+  s.plannedRoutes = plannedRoutes_;
   for (auto &[id, r] : robots_)
     s.robots.push_back(r.view);
   for (auto &[id, o] : orders_)
@@ -96,6 +97,16 @@ bool WarehouseState::freeLocked(Position p, const std::string &robot) const {
 std::optional<std::vector<Position>>
 WarehouseState::route(Position from, Position to, bool dynamic,
                       const std::string &robot) const {
+  return findRoute(from, to, dynamic, robot, false);
+}
+std::optional<std::vector<Position>>
+WarehouseState::previewRoute(Position from, Position station,
+                             const std::string &robot) const {
+  return findRoute(from, station, false, robot, true);
+}
+std::optional<std::vector<Position>>
+WarehouseState::findRoute(Position from, Position to, bool dynamic,
+                          const std::string &robot, bool allowStationGoal) const {
   Matrix<uint8_t> blocked(scenario_.width, scenario_.height, 0);
   {
     std::lock_guard lock(mutex_);
@@ -106,6 +117,8 @@ WarehouseState::route(Position from, Position to, bool dynamic,
           blocked.at({x, y}) = 1;
       }
     for (auto &station : scenario_.stations) {
+      if (allowStationGoal && station.position == to)
+        continue;
       auto owner = stationOwners_.find(station.id);
       if (owner == stationOwners_.end() || owner->second != robot)
         blocked.at(station.position) = 1;
@@ -118,6 +131,14 @@ WarehouseState::route(Position from, Position to, bool dynamic,
       blocked.at(from) = 0;
   }
   return bfs(blocked, from, to);
+}
+void WarehouseState::publishRoute(const std::string &robotId,
+                                  std::vector<Position> cells) {
+  std::lock_guard lock(mutex_);
+  if (stopped_ || cells.empty())
+    plannedRoutes_.erase(robotId);
+  else
+    plannedRoutes_[robotId] = std::move(cells);
 }
 bool WarehouseState::addOrder(std::unique_ptr<Order> order) {
   if (!order)
@@ -296,6 +317,15 @@ bool WarehouseState::move(const std::string &robotId, Position next) {
     return false;
   auto old = r.view.position;
   r.view.position = next;
+  if (auto route = plannedRoutes_.find(robotId); route != plannedRoutes_.end()) {
+    if (route->second.front() == next) {
+      route->second.erase(route->second.begin());
+      if (route->second.empty())
+        plannedRoutes_.erase(route);
+    } else {
+      plannedRoutes_.erase(route);
+    }
+  }
   r.view.waitingFor.clear();
   for (auto &[id, other] : robots_)
     if (other.view.waitingFor == robotId)
@@ -562,6 +592,7 @@ void WarehouseState::stop() {
       pausedTotal_ += std::chrono::duration_cast<std::chrono::milliseconds>(
           stoppedAt_ - pausedAt_);
     stopped_ = true;
+    plannedRoutes_.clear();
     for (auto &[id, r] : robots_)
       r.view.status = RobotStatus::Stopped;
     changedLocked();

@@ -2,6 +2,7 @@
 #include "simra/window.hpp"
 #include <QApplication>
 #include <QGraphicsItemGroup>
+#include <QGraphicsPathItem>
 #include <QGraphicsScene>
 #include <QLabel>
 #include <QPushButton>
@@ -52,6 +53,14 @@ int main(int argc, char **argv) {
   CHECK(panels->tabText(0) == "Robots");
   CHECK(panels->tabText(1) == "Estadísticas");
   CHECK(window.findChild<QWidget *>("technicalStats"));
+  CHECK(QTest::qWaitFor([&] {
+    int routes = 0;
+    for (const auto *item : map->scene()->items())
+      if (auto *line = qgraphicsitem_cast<const QGraphicsPathItem *>(item);
+          line && line->pen().style() == Qt::DashLine && !line->path().isEmpty())
+        ++routes;
+    return routes == 2;
+  }, 4000));
   QGraphicsItem *movingRobot = nullptr;
   CHECK(QTest::qWaitFor([&] {
     for (auto *item : map->scene()->items()) {
@@ -66,6 +75,16 @@ int main(int argc, char **argv) {
     }
     return false;
   }, 4000));
+  const auto robotId = movingRobot->toolTip().section(" · ", 0, 0);
+  bool anchored = false;
+  for (const auto *item : map->scene()->items())
+    if (auto *line = qgraphicsitem_cast<const QGraphicsPathItem *>(item);
+        line && line->data(0).toString() == robotId && !line->path().isEmpty()) {
+      const auto startPoint = line->path().elementAt(0);
+      anchored = QPointF(startPoint.x, startPoint.y) ==
+                 movingRobot->pos() + QPointF(26, 26);
+    }
+  CHECK(anchored);
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Reanudar");
   const auto pausedPosition = movingRobot->pos();

@@ -14,3 +14,5 @@ Compila con los comandos del README y abre `./build/simra`. En Inicio elige uno 
 **Iniciar demostración** carga los pedidos del escenario y crea un hilo por robot. El reloj de las demostraciones funciona al 38 % de la velocidad normal. **Pausar** congela el avance y el desplazamiento visual. **Reanudar** continúa desde el mismo punto. **Inicio** detiene y une los hilos antes de volver al selector.
 
 La vista interpola los movimientos confirmados por el motor a 30 FPS. Los avisos flotantes señalan al robot implicado mediante un contorno y un conector. Duran hasta seis segundos y conservan un mínimo de lectura de aproximadamente 2,5 segundos cuando llegan otros hitos. En Estadísticas, el buffer cuenta los pedidos pendientes de asignar. **Reiniciar demostración** se habilita cuando todos los pedidos terminan y las estaciones quedan libres.
+
+La línea punteada de cada robot muestra el trayecto pendiente y sigue su posición animada. Durante la espera por una estación, señala el destino previsto mientras se obtiene la reserva. Selecciona un robot en el panel lateral para destacar su recorrido.

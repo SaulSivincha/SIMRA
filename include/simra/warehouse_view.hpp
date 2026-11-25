@@ -10,7 +10,6 @@
 #include <map>
 
 class QGraphicsEllipseItem;
-class QGraphicsItem;
 class QGraphicsItemGroup;
 class QGraphicsLineItem;
 class QGraphicsPathItem;
@@ -19,10 +18,6 @@ class QGraphicsScene;
 class QGraphicsTextItem;
 class QTimer;
 namespace simra {
-struct RouteOverlay {
-  std::string robotId;
-  std::vector<Position> cells;
-};
 class WarehouseView final : public QGraphicsView {
   struct RobotVisual {
     QGraphicsItemGroup *group{};
@@ -31,6 +26,8 @@ class WarehouseView final : public QGraphicsView {
     QGraphicsTextItem *label{};
     QGraphicsRectItem *cargo{}, *battery{};
     QPointF target;
+    QGraphicsPathItem *route{};
+    std::vector<Position> routeCells;
   };
   struct Motion {
     QPointF from, to;
@@ -50,7 +47,6 @@ class WarehouseView final : public QGraphicsView {
   std::map<std::string, RobotVisual> robotVisuals_;
   std::map<std::string, QGraphicsTextItem *> shelfBadges_;
   std::map<std::string, Motion> motions_;
-  std::vector<QGraphicsItem *> routeItems_;
   QGraphicsItemGroup *milestoneModal_{};
   QGraphicsEllipseItem *milestoneFocus_{};
   QGraphicsLineItem *milestonePointer_{};
@@ -64,10 +60,8 @@ class WarehouseView final : public QGraphicsView {
   static constexpr int Cell = 52;
   void fitMap();
   void rebuildMap(const Snapshot &snapshot);
-  void updateRoute(const Snapshot &snapshot,
-                   const std::optional<RouteOverlay> &route);
-  void updateRobots(const Snapshot &snapshot,
-                    const std::optional<RouteOverlay> &route);
+  void updateRoute(const RobotVisual &robot);
+  void updateRobots(const Snapshot &snapshot, const std::string &focusedRobot);
   QPointF displayedPosition(const std::string &id,
                             std::chrono::steady_clock::time_point now) const;
   void advanceAnimations();
@@ -91,7 +85,6 @@ public:
   void showMilestone(const QString &title, const QString &detail,
                      const QColor &accent, const std::string &robotId,
                      int priority = 1);
-  void render(const Snapshot &snapshot,
-              const std::optional<RouteOverlay> &route = {});
+  void render(const Snapshot &snapshot, const std::string &focusedRobot = {});
 };
 } // namespace simra

@@ -88,7 +88,6 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   motions_.clear();
   robotVisuals_.clear();
   shelfBadges_.clear();
-  routeItems_.clear();
   milestoneModal_ = nullptr;
   milestoneRobot_.clear();
   pendingMilestone_.reset();
@@ -160,40 +159,19 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   mapReady_ = true;
   fitMap();
 }
-void WarehouseView::updateRoute(const Snapshot &snapshot,
-                                const std::optional<RouteOverlay> &route) {
-  for (auto *item : routeItems_)
-    delete item;
-  routeItems_.clear();
-  if (!route)
-    return;
-  QColor color("#2563EB");
-  Position previous{};
-  bool hasPrevious = false;
-  for (const auto &robot : snapshot.robots)
-    if (robot.id == route->robotId) {
-      previous = robot.position;
-      hasPrevious = true;
-      if (robot.kind == RobotKind::Heavy)
-        color = QColor("#9333EA");
-      break;
-    }
-  if (!hasPrevious)
-    return;
-  const QPen pen(color, 3, Qt::DashLine, Qt::RoundCap);
-  if (robotVisuals_.contains(route->robotId)) {
-    const auto visual = displayedPosition(
-        route->robotId, pausedAt_.value_or(std::chrono::steady_clock::now()));
-    routeItems_.push_back(scene_->addLine(
-        visual.x() + Cell / 2, visual.y() + Cell / 2,
-        previous.x * Cell + Cell / 2, previous.y * Cell + Cell / 2, pen));
+void WarehouseView::updateRoute(const RobotVisual &robot) {
+  const QPointF center(Cell / 2.0, Cell / 2.0);
+  const auto current = robot.group->pos();
+  QPainterPath path;
+  if (current != robot.target || !robot.routeCells.empty()) {
+    path.moveTo(current + center);
+    if (current != robot.target)
+      path.lineTo(robot.target + center);
+    for (const auto cell : robot.routeCells)
+      path.lineTo(QPointF(cell.x * Cell, cell.y * Cell) + center);
   }
-  for (const auto next : route->cells) {
-    routeItems_.push_back(scene_->addLine(
-        previous.x * Cell + Cell / 2, previous.y * Cell + Cell / 2,
-        next.x * Cell + Cell / 2, next.y * Cell + Cell / 2, pen));
-    previous = next;
-  }
+  if (robot.route->path() != path)
+    robot.route->setPath(path);
 }
 QPointF WarehouseView::displayedPosition(
     const std::string &id, std::chrono::steady_clock::time_point now) const {
@@ -208,7 +186,7 @@ QPointF WarehouseView::displayedPosition(
   return found->second.from + (found->second.to - found->second.from) * linear;
 }
 void WarehouseView::updateRobots(const Snapshot &snapshot,
-                                 const std::optional<RouteOverlay> &route) {
+                                 const std::string &focusedRobot) {
   std::vector<RobotView> robots = snapshot.robots;
   if (robots.empty())
     for (const auto &robot : snapshot.scenario.robots)
@@ -237,7 +215,9 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       label->setPos(12, 13);
       auto *cargo = new QGraphicsRectItem(Cell - 17, 3, 12, 12, group);
       auto *battery = new QGraphicsRectItem(9, Cell - 8, 0, 4, group);
-      it->second = {group, focus, body, label, cargo, battery, target};
+      auto *route = scene_->addPath(QPainterPath{});
+      route->setData(0, QString::fromStdString(robot.id));
+      it->second = {group, focus, body, label, cargo, battery, target, route, {}};
       group->setPos(target);
     }
     auto &visual = it->second;
@@ -259,7 +239,19 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     visual.body->setBrush(QBrush(color));
     visual.focus->setPen(QPen(color, 3));
     visual.focus->setBrush(Qt::NoBrush);
-    visual.focus->setVisible(route && route->robotId == robot.id);
+    const bool focused = focusedRobot == robot.id;
+    const auto route = snapshot.plannedRoutes.find(robot.id);
+    if (route == snapshot.plannedRoutes.end())
+      visual.routeCells.clear();
+    else
+      visual.routeCells = route->second;
+    auto routeColor = color;
+    routeColor.setAlpha(focused ? 255 : 175);
+    visual.route->setPen(QPen(routeColor, focused ? 4 : 3, Qt::DashLine,
+                             Qt::RoundCap, Qt::RoundJoin));
+    visual.route->setZValue(focused ? 5 : 4);
+    visual.focus->setVisible(focused);
+    updateRoute(visual);
     visual.label->setPlainText(QString::fromStdString(robot.id));
     visual.cargo->setPen(QPen(QColor("#92400E")));
     visual.cargo->setBrush(QBrush(QColor("#FBBF24")));
@@ -280,6 +272,7 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
                                        return robot.id == it->first;
                                      });
     if (!present) {
+      delete it->second.route;
       delete it->second.group;
       motions_.erase(it->first);
       it = robotVisuals_.erase(it);
@@ -294,7 +287,9 @@ void WarehouseView::advanceAnimations() {
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                              now - motion.started)
                              .count();
-    robotVisuals_.at(id).group->setPos(displayedPosition(id, now));
+    auto &robot = robotVisuals_.at(id);
+    robot.group->setPos(displayedPosition(id, now));
+    updateRoute(robot);
     if (elapsed >= motion.durationMs)
       it = motions_.erase(it);
     else
@@ -380,7 +375,7 @@ void WarehouseView::displayMilestone(const Milestone &milestone) {
   milestoneTimer_->start(6000);
 }
 void WarehouseView::render(const Snapshot &snapshot,
-                           const std::optional<RouteOverlay> &route) {
+                           const std::string &focusedRobot) {
   const bool runtimeSnapshot = !snapshot.robots.empty();
   const bool dimensionsChanged = width_ != snapshot.scenario.width ||
                                  height_ != snapshot.scenario.height;
@@ -396,8 +391,7 @@ void WarehouseView::render(const Snapshot &snapshot,
     if (badge->toPlainText() != label)
       badge->setPlainText(label);
   }
-  updateRoute(snapshot, route);
-  updateRobots(snapshot, route);
+  updateRobots(snapshot, focusedRobot);
   positionMilestone();
 }
 } // namespace simra

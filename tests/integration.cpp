@@ -40,11 +40,17 @@ int main() {
       st.position = {1, 0};
   charging.validate();
   WarehouseState charger(charging);
+  CHECK(!charger.route({0, 0}, {1, 0}, false, "R01"));
+  CHECK(charger.previewRoute({0, 0}, {1, 0}, "R01"));
   CHECK(charger.reserveCharger("R01"));
   CHECK(!charger.reserveCharger("R02"));
+  charger.publishRoute("R01", {{1, 0}, {1, 1}});
+  CHECK(charger.snapshot().plannedRoutes.at("R01").size() == 2);
   CHECK(charger.move("R01", {1, 0}));
+  CHECK(charger.snapshot().plannedRoutes.at("R01").size() == 1);
   CHECK(charger.charge("R01"));
   CHECK(charger.move("R01", {1, 1}));
+  CHECK(charger.snapshot().plannedRoutes.empty());
   CHECK(charger.reserveCharger("R02"));
   auto serving = s;
   serving.robots[0].position = {0, 4};
@@ -109,10 +115,16 @@ int main() {
   energy.start();
   auto chargeDeadline =
       std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  bool sawRouteToCharger = false;
   while (std::chrono::steady_clock::now() < chargeDeadline &&
-         energy.state().snapshot().metrics.recharges < 2)
+         energy.state().snapshot().metrics.recharges < 2) {
+    const auto current = energy.state().snapshot();
+    for (const auto &[id, route] : current.plannedRoutes)
+      sawRouteToCharger |= route.back() == Position{1, 1};
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
   energy.stop();
+  CHECK(sawRouteToCharger);
   CHECK(energy.state().snapshot().metrics.recharges >= 2);
   for (const auto &[name, orderCount] :
        {std::pair{"basic", 4}, {"mixed", 5}, {"congestion", 7}, {"charging", 4}}) {

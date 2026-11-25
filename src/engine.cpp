@@ -20,13 +20,15 @@ bool travel(WarehouseState &state, const std::string &id, Position destination,
         std::find_if(snapshot.robots.begin(), snapshot.robots.end(),
                      [&](const auto &r) { return r.id == id; });
     if (robot->position == destination) {
+      state.publishRoute(id, {});
       state.setRobotStatus(id, phase);
       return true;
     }
     auto path = state.route(robot->position, destination, true, id);
-    if (!path || !state.canAffordStep(id, path->front()))
+    if (!path || path->empty() || !state.canAffordStep(id, path->front()))
       path = state.route(robot->position, destination, false, id);
-    if (path && state.canAffordStep(id, path->front())) {
+    state.publishRoute(id, path.value_or(std::vector<Position>{}));
+    if (path && !path->empty() && state.canAffordStep(id, path->front())) {
       if (!state.waitStep(interval))
         return false;
       if (state.move(id, path->front())) {
@@ -50,6 +52,7 @@ bool travel(WarehouseState &state, const std::string &id, Position destination,
               !state.canAffordStep(id, refuge))
             continue;
           if (state.move(id, refuge)) {
+            state.publishRoute(id, std::move(*continuation));
             SimulationLogger::instance().log(EventKind::WaitCycleRecovered,
                                              "cedió el paso", id);
             moved = true;
@@ -79,7 +82,17 @@ bool travel(WarehouseState &state, const std::string &id, Position destination,
 bool leaveStation(WarehouseState &state, const std::string &id, Position cell) {
   const auto interval = std::chrono::milliseconds(state.stepMs(id));
   auto position = cell;
-  while (state.waitStep(interval)) {
+  while (!state.stopped()) {
+    for (auto delta : directions) {
+      const auto next = position + delta;
+      if (distance(next, cell) > distance(position, cell) &&
+          state.route(position, next, true, id)) {
+        state.publishRoute(id, {next});
+        break;
+      }
+    }
+    if (!state.waitStep(interval))
+      return false;
     bool moved = false;
     for (auto delta : directions) {
       const auto next = position + delta;
@@ -95,11 +108,27 @@ bool leaveStation(WarehouseState &state, const std::string &id, Position cell) {
       return true;
     if (moved)
       continue;
-    if (position != cell)
+    if (position != cell) {
+      state.publishRoute(id, {});
       return true;
+    }
     waitForResource(state);
   }
   return false;
+}
+
+void previewStation(WarehouseState &state, const std::string &id,
+                    const std::string &stationId) {
+  const auto snapshot = state.snapshot();
+  const auto robot = std::find_if(snapshot.robots.begin(), snapshot.robots.end(),
+                                  [&](const auto &r) { return r.id == id; });
+  const auto station =
+      std::find_if(snapshot.scenario.stations.begin(),
+                   snapshot.scenario.stations.end(),
+                   [&](const auto &s) { return s.id == stationId; });
+  if (robot != snapshot.robots.end() && station != snapshot.scenario.stations.end())
+    state.publishRoute(id, state.previewRoute(robot->position, station->position, id)
+                               .value_or(std::vector<Position>{}));
 }
 
 bool acquireService(WarehouseState &state, const std::string &id,
@@ -107,6 +136,7 @@ bool acquireService(WarehouseState &state, const std::string &id,
   while (!state.stopped()) {
     if (state.reserveService(id, station))
       return true;
+    previewStation(state, id, station);
     state.setRobotStatus(id, RobotStatus::Waiting, station);
     waitForResource(state);
   }
@@ -115,6 +145,8 @@ bool acquireService(WarehouseState &state, const std::string &id,
 
 bool recharge(WarehouseState &state, const std::string &id) {
   if (!state.reserveCharger(id)) {
+    if (auto station = state.chargerFor(id))
+      previewStation(state, id, *station);
     state.setRobotStatus(id, RobotStatus::Waiting, "recarga compatible");
     waitForResource(state);
     return false;

@@ -192,37 +192,7 @@ void MainWindow::refresh() {
     showMilestone(*event);
 }
 void MainWindow::render(const Snapshot &s) {
-  std::optional<RouteOverlay> overlay;
-  if (engine_ && !selectedRobot_.empty()) {
-    auto robot = std::find_if(s.robots.begin(), s.robots.end(),
-                              [&](auto &r) { return r.id == selectedRobot_; });
-    auto order = std::find_if(s.orders.begin(), s.orders.end(), [&](auto &o) {
-      return o.robotId == selectedRobot_ && o.status != OrderStatus::Completed;
-    });
-    if (robot != s.robots.end() && order != s.orders.end()) {
-      if (auto plan = engine_->state().taskPlan(selectedRobot_)) {
-        const auto goal =
-            robot->carrying.empty() ? plan->pickup : plan->destination;
-        auto route =
-            engine_->state().route(robot->position, goal, true, selectedRobot_);
-        if (route)
-          overlay = RouteOverlay{selectedRobot_, std::move(*route)};
-      }
-    }
-  }
-  if (engine_ && !overlay) {
-    for (const auto &robot : s.robots) {
-      if (auto plan = engine_->state().taskPlan(robot.id)) {
-        auto target = robot.carrying.empty() ? plan->pickup : plan->destination;
-        if (auto route = engine_->state().route(robot.position, target, true,
-                                                robot.id)) {
-          overlay = RouteOverlay{robot.id, *route};
-          break;
-        }
-      }
-    }
-  }
-  view_->render(s, overlay);
+  view_->render(s, selectedRobot_);
   auto robotSnapshot = s;
   if (robotSnapshot.robots.empty())
     for (auto &robot : s.scenario.robots)

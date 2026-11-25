@@ -34,6 +34,7 @@ struct Snapshot {
   std::vector<OrderView> orders;
   std::vector<CargoView> cargo;
   std::vector<std::pair<std::string, std::string>> stationReservations;
+  std::map<std::string, std::vector<Position>> plannedRoutes;
   Metrics metrics;
   bool paused{}, stopped{};
   uint64_t version{};
@@ -54,6 +55,7 @@ class WarehouseState {
   mutable std::mutex mutex_;
   std::condition_variable cv_;
   std::map<std::string, RuntimeRobot> robots_;
+  std::map<std::string, std::vector<Position>> plannedRoutes_;
   std::map<std::string, RuntimeCargo> cargo_;
   std::map<std::string, std::unique_ptr<ChargingStation>> chargers_;
   std::map<std::string, std::unique_ptr<Order>> orders_;
@@ -79,6 +81,9 @@ public:
   std::optional<TaskPlan> taskPlan(const std::string &robotId) const;
   bool move(const std::string &robotId, Position next);
   bool canAffordStep(const std::string &robotId, Position next) const;
+  void publishRoute(const std::string &robotId, std::vector<Position> cells);
+  std::optional<std::vector<Position>> previewRoute(
+      Position from, Position station, const std::string &robot) const;
   bool pickUp(const std::string &robotId, const std::string &orderId);
   bool deliver(const std::string &robotId, const std::string &orderId);
   bool reserveCharger(const std::string &robotId);
@@ -99,6 +104,11 @@ public:
                                              bool dynamic,
                                              const std::string &robot) const;
   std::optional<std::string> chargerFor(const std::string &robotId) const;
+
+private:
+  std::optional<std::vector<Position>> findRoute(
+      Position from, Position to, bool dynamic, const std::string &robot,
+      bool allowStationGoal) const;
 };
 
 } // namespace simra
