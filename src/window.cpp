@@ -162,6 +162,7 @@ void MainWindow::startSimulation() {
   try {
     scenario_.validate();
     nextOrder_ = 1;
+    view_->resetAnimation();
     engine_ = std::make_unique<SimulationEngine>(scenario_);
     engine_->state().setSpeedPercent(100);
     engine_->start(false);
