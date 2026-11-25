@@ -50,7 +50,8 @@ bool travel(WarehouseState &state, const std::string &id, Position destination,
               !state.canAffordStep(id, refuge))
             continue;
           if (state.move(id, refuge)) {
-            SimulationLogger::instance().log("cedió el paso", id);
+            SimulationLogger::instance().log(EventKind::WaitCycleRecovered,
+                                             "cedió el paso", id);
             moved = true;
             break;
           }
@@ -64,7 +65,8 @@ bool travel(WarehouseState &state, const std::string &id, Position destination,
       waitingSince = now;
     if (now - *waitingSince >= 2000) {
       if (robot->status != RobotStatus::Blocked)
-        SimulationLogger::instance().log("espera prolongada en ruta", id);
+        SimulationLogger::instance().log(EventKind::MutexWait,
+                                         "espera prolongada en ruta", id);
       state.setRobotStatus(id, RobotStatus::Blocked, "ruta sin paso libre");
     } else {
       state.setRobotStatus(id, RobotStatus::Waiting, path ? "" : "ruta");
@@ -109,7 +111,8 @@ bool recharge(WarehouseState &state, const std::string &id) {
   if (!travel(state, id, station->position, RobotStatus::ToCharge))
     return false;
   state.setRobotStatus(id, RobotStatus::Charging);
-  SimulationLogger::instance().log("recarga iniciada: " + station->id, id);
+  SimulationLogger::instance().log(EventKind::ChargingStarted,
+                                   "recarga iniciada: " + station->id, id);
   while (state.waitStep(120ms)) {
     if (!state.charge(id, 20))
       continue;
@@ -117,7 +120,8 @@ bool recharge(WarehouseState &state, const std::string &id) {
     auto robot = std::find_if(progress.robots.begin(), progress.robots.end(),
                               [&](const auto &r) { return r.id == id; });
     if (robot->battery == robot->maxBattery) {
-      SimulationLogger::instance().log("recarga completada: " + station->id,
+      SimulationLogger::instance().log(EventKind::ChargingCompleted,
+                                       "recarga completada: " + station->id,
                                        id);
       return leaveStation(state, id, station->position);
     }
@@ -158,7 +162,8 @@ bool executeOrder(WarehouseState &state, const std::string &id,
 } // namespace
 
 void RobotWorker::operator()() {
-  SimulationLogger::instance().log("hilo iniciado", id);
+  SimulationLogger::instance().log(EventKind::ThreadStarted, "hilo iniciado",
+                                   id);
   while (state.waitStep(std::chrono::milliseconds(0))) {
     const auto snapshot = state.snapshot();
     const auto robot =
@@ -170,7 +175,8 @@ void RobotWorker::operator()() {
     }
     state.setRobotStatus(id, RobotStatus::Idle);
     if (auto order = state.assign(id)) {
-      SimulationLogger::instance().log("pedido asignado: " + *order, id);
+      SimulationLogger::instance().log(EventKind::OrderAssigned,
+                                       "pedido asignado: " + *order, id);
       if (!executeOrder(state, id, *order))
         break;
     } else {

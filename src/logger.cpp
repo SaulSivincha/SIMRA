@@ -1,10 +1,11 @@
 #include "simra/concurrency.hpp"
 #include <sstream>
 namespace simra {
-void SimulationLogger::log(std::string text, std::string robotId) {
+void SimulationLogger::log(EventKind kind, std::string text,
+                           std::string robotId) {
   std::ostringstream out;
   out << std::this_thread::get_id();
-  Event event{std::move(text), std::move(robotId), out.str(),
+  Event event{kind, std::move(text), std::move(robotId), out.str(),
               std::chrono::system_clock::now()};
   {
     std::lock_guard lock(mutex_);

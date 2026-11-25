@@ -55,7 +55,20 @@ public:
   }
 };
 
+enum class EventKind {
+  Generic,
+  ThreadStarted,
+  OrderAssigned,
+  ResourceAcquired,
+  ResourceReleased,
+  MutexWait,
+  WaitCycleDetected,
+  WaitCycleRecovered,
+  ChargingStarted,
+  ChargingCompleted
+};
 struct Event {
+  EventKind kind{EventKind::Generic};
   std::string text, robotId, threadId;
   std::chrono::system_clock::time_point when;
 };
@@ -72,7 +85,10 @@ public:
     static SimulationLogger value;
     return value;
   }
-  void log(std::string text, std::string robotId = {});
+  void log(std::string text, std::string robotId = {}) {
+    log(EventKind::Generic, std::move(text), std::move(robotId));
+  }
+  void log(EventKind kind, std::string text, std::string robotId = {});
   std::vector<Event> events() const;
   std::optional<Event> tryNextEvent() { return pending_.tryPop(); }
 };

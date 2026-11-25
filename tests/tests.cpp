@@ -143,6 +143,10 @@ int main() {
   for (auto &writer : writers)
     writer.join();
   CHECK(SimulationLogger::instance().events().size() == beforeEvents + 80);
+  SimulationLogger::instance().log(EventKind::ResourceAcquired,
+                                   "reservó el recurso D01", "R01");
+  const auto taggedEvents = SimulationLogger::instance().events();
+  CHECK(taggedEvents.back().kind == EventKind::ResourceAcquired);
   auto path =
       (std::filesystem::temp_directory_path() /
        ("simra-roundtrip-" +

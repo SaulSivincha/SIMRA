@@ -254,9 +254,20 @@ bool WarehouseState::move(const std::string &robotId, Position next) {
     ++metrics_.conflicts;
     for (auto &[otherId, other] : robots_)
       if (otherId != robotId && other.view.position == next) {
-        if (r.view.waitingFor != otherId && other.view.waitingFor == robotId)
+        const bool changedOwner = r.view.waitingFor != otherId;
+        const bool cycle = changedOwner && other.view.waitingFor == robotId;
+        if (cycle)
           ++metrics_.cycles;
         r.view.waitingFor = otherId;
+        if (cycle)
+          SimulationLogger::instance().log(
+              EventKind::WaitCycleDetected,
+              "ciclo de espera con " + otherId, robotId);
+        else if (changedOwner)
+          SimulationLogger::instance().log(EventKind::MutexWait,
+                                           "espera la celda ocupada por " +
+                                               otherId,
+                                           robotId);
         break;
       }
     changedLocked();
@@ -291,10 +302,14 @@ bool WarehouseState::move(const std::string &robotId, Position next) {
     auto it = std::find_if(scenario_.stations.begin(), scenario_.stations.end(),
                            [&](auto &s) { return s.id == r.stationId; });
     if (it != scenario_.stations.end() && old == it->position) {
+      const auto released = r.stationId;
       stationOwners_.erase(r.stationId);
       r.stationId.clear();
       if (it->kind == Terrain::ChargeLight || it->kind == Terrain::ChargeHeavy)
         r.view.status = RobotStatus::Idle;
+      SimulationLogger::instance().log(EventKind::ResourceReleased,
+                                       "liberó el recurso " + released,
+                                       robotId);
     }
   }
   changedLocked();
@@ -400,6 +415,9 @@ bool WarehouseState::reserveCharger(const std::string &robotId) {
     robot.view.status = RobotStatus::ToCharge;
     robot.view.waitingFor.clear();
     changedLocked();
+    SimulationLogger::instance().log(EventKind::ResourceAcquired,
+                                     "reservó el cargador " + station->id,
+                                     robotId);
     return true;
   }
   return false;
@@ -425,6 +443,9 @@ bool WarehouseState::reserveService(const std::string &robotId,
   owner = robotId;
   robot.stationId = stationId;
   changedLocked();
+  SimulationLogger::instance().log(EventKind::ResourceAcquired,
+                                   "reservó el recurso " + stationId,
+                                   robotId);
   return true;
 }
 bool WarehouseState::charge(const std::string &robotId, int increment) {
@@ -477,6 +498,12 @@ void WarehouseState::setRobotStatus(const std::string &id, RobotStatus status,
     r.threadId = out.str();
   }
   changedLocked();
+  if (status == RobotStatus::Waiting || status == RobotStatus::Blocked)
+    SimulationLogger::instance().log(
+        EventKind::MutexWait,
+        "espera " + (r.waitingFor.empty() ? std::string("un recurso")
+                                            : r.waitingFor),
+        id);
 }
 bool WarehouseState::waitChange(uint64_t seen,
                                 std::chrono::milliseconds timeout) {

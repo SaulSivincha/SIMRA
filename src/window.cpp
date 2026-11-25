@@ -281,8 +281,8 @@ void MainWindow::refresh() {
     return;
   auto s = engine_->state().snapshot();
   render(s);
-  while (SimulationLogger::instance().tryNextEvent())
-    ;
+  while (auto event = SimulationLogger::instance().tryNextEvent())
+    showMilestone(*event);
 }
 void MainWindow::render(const Snapshot &s) {
   std::optional<RouteOverlay> overlay;
@@ -355,24 +355,21 @@ void MainWindow::render(const Snapshot &s) {
   }
 }
 void MainWindow::updateConceptMoment(const Snapshot &snapshot) {
-  auto setMoment = [this](const QString &title, const QString &detail,
-                          const QString &accent, const QString &background) {
-    moment_->setText("<b>" + title + "</b> · " + detail);
-    moment_->setStyleSheet("background:" + background + ";color:#E2E8F0;"
-                           "border-left:5px solid " + accent +
-                           ";padding:10px 12px;border-radius:6px;");
-  };
+  if (milestoneFrames_ > 0) {
+    --milestoneFrames_;
+    return;
+  }
   const auto busy = [](const RobotView &robot) {
     return robot.status != RobotStatus::Idle && robot.status != RobotStatus::Stopped;
   };
   const auto active = std::count_if(snapshot.robots.begin(), snapshot.robots.end(), busy);
   if (scenarioIndex_ == 0) {
     if (active >= 2)
-      setMoment("HILOS EN EJECUCIÓN",
+      setConceptMoment("HILOS EN EJECUCIÓN",
                 "dos trabajadores avanzan de forma independiente sobre el mismo almacén.",
                 "#38BDF8", "#0C2942");
     else
-      setMoment("RUTA BFS CALCULADA",
+      setConceptMoment("RUTA BFS CALCULADA",
                 "la línea discontinua representa el camino que seguirá el robot.",
                 "#60A5FA", "#172554");
     return;
@@ -387,11 +384,11 @@ void MainWindow::updateConceptMoment(const Snapshot &snapshot) {
                                       return robot.kind == RobotKind::Heavy && busy(robot);
                                     });
     if (light != snapshot.robots.end() && heavy != snapshot.robots.end())
-      setMoment("POLIMORFISMO ACTIVO",
+      setConceptMoment("POLIMORFISMO ACTIVO",
                 "la misma interfaz Robot coordina un ligero y un pesado con reglas propias.",
                 "#C084FC", "#2E1065");
     else
-      setMoment("HERENCIA DE ROBOTS",
+      setConceptMoment("HERENCIA DE ROBOTS",
                 "LightRobot y HeavyRobot especializan capacidad, consumo y velocidad.",
                 "#C084FC", "#2E1065");
     return;
@@ -406,16 +403,16 @@ void MainWindow::updateConceptMoment(const Snapshot &snapshot) {
       const auto resource = waiting->waitingFor.empty()
                                 ? QString("la zona crítica")
                                 : QString::fromStdString(waiting->waitingFor);
-      setMoment("MUTEX ACTIVADO",
+      setConceptMoment("MUTEX ACTIVADO",
                 QString::fromStdString(waiting->id) + " espera " + resource +
                     "; solo un robot puede usar el recurso a la vez.",
                 "#F59E0B", "#451A03");
     } else if (snapshot.metrics.conflicts > 0) {
-      setMoment("EXCLUSIÓN MUTUA VERIFICADA",
+      setConceptMoment("EXCLUSIÓN MUTUA VERIFICADA",
                 "la coordinación evitó que dos robots ocuparan la misma celda.",
                 "#F59E0B", "#451A03");
     } else {
-      setMoment("PASILLO CRÍTICO",
+      setConceptMoment("PASILLO CRÍTICO",
                 "el motor vigila la ocupación exclusiva antes de cada movimiento.",
                 "#FBBF24", "#422006");
     }
@@ -423,14 +420,70 @@ void MainWindow::updateConceptMoment(const Snapshot &snapshot) {
   }
   if (!snapshot.stationReservations.empty()) {
     const auto &[station, robot] = snapshot.stationReservations.front();
-    setMoment("RECURSO COMPARTIDO RESERVADO",
+    setConceptMoment("RECURSO COMPARTIDO RESERVADO",
               QString::fromStdString(robot + " posee " + station) +
                   "; los demás hilos esperan su liberación.",
               "#2DD4BF", "#134E4A");
   } else {
-    setMoment("RESERVA EXCLUSIVA DE RECARGA",
+    setConceptMoment("RESERVA EXCLUSIVA DE RECARGA",
               "la estación admite un único robot y coordina el acceso concurrente.",
               "#2DD4BF", "#134E4A");
   }
+}
+void MainWindow::setConceptMoment(const QString &title, const QString &detail,
+                                  const QString &accent,
+                                  const QString &background) {
+  moment_->setText("<b>" + title + "</b> · " + detail);
+  moment_->setStyleSheet("background:" + background + ";color:#E2E8F0;"
+                         "border-left:5px solid " + accent +
+                         ";padding:10px 12px;border-radius:6px;");
+}
+void MainWindow::showMilestone(const Event &event) {
+  const auto actor = event.robotId.empty()
+                         ? QString("El sistema")
+                         : QString::fromStdString(event.robotId);
+  const auto detail = actor + " · " + QString::fromStdString(event.text);
+  switch (event.kind) {
+  case EventKind::ThreadStarted:
+    setConceptMoment("HILO CREADO", detail,
+                     "#38BDF8", "#0C2942");
+    break;
+  case EventKind::OrderAssigned:
+    setConceptMoment(scenarioIndex_ == 1 ? "POLIMORFISMO EN ACCIÓN"
+                                          : "TRABAJO ASIGNADO",
+                     detail, "#60A5FA", "#172554");
+    break;
+  case EventKind::ResourceAcquired:
+    setConceptMoment("RECURSO ADQUIRIDO", detail,
+                     "#2DD4BF", "#134E4A");
+    break;
+  case EventKind::ResourceReleased:
+    setConceptMoment("RECURSO LIBERADO", detail,
+                     "#34D399", "#064E3B");
+    break;
+  case EventKind::MutexWait:
+    setConceptMoment("MUTEX: ESPERA CONTROLADA", detail,
+                     "#F59E0B", "#451A03");
+    break;
+  case EventKind::WaitCycleDetected:
+    setConceptMoment("CICLO DE ESPERA DETECTADO", detail,
+                     "#FB7185", "#4C0519");
+    break;
+  case EventKind::WaitCycleRecovered:
+    setConceptMoment("CICLO DE ESPERA RECUPERADO", detail,
+                     "#FBBF24", "#422006");
+    break;
+  case EventKind::ChargingStarted:
+    setConceptMoment("SECCIÓN CRÍTICA DE RECARGA", detail,
+                     "#2DD4BF", "#134E4A");
+    break;
+  case EventKind::ChargingCompleted:
+    setConceptMoment("RECARGA COMPLETADA", detail,
+                     "#34D399", "#064E3B");
+    break;
+  case EventKind::Generic:
+    return;
+  }
+  milestoneFrames_ = 30;
 }
 } // namespace simra

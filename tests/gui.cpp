@@ -45,8 +45,10 @@ int main(int argc, char **argv) {
   auto *guide = window.findChild<QLabel *>("demonstrationGuide");
   CHECK(guide && guide->text().contains("hilo"));
   auto *moment = window.findChild<QLabel *>("conceptMoment");
-  CHECK(moment &&
-        QTest::qWaitFor([&] { return moment->text().contains("HILOS"); }));
+  CHECK(moment && QTest::qWaitFor([&] {
+    return moment->text().contains("HILO") ||
+           moment->text().contains("TRABAJO ASIGNADO");
+  }));
   auto *panels = window.findChild<QTabWidget *>();
   CHECK(panels && panels->count() == 2);
   CHECK(panels->tabText(0) == "Robots");
