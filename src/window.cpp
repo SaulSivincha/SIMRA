@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   setWindowTitle("SIMRA · Robots de almacén");
   resize(1440, 900);
   visual::applyTheme(*this);
-  setWindowIcon(visual::icon("brand", QColor(visual::primary)));
+  setWindowIcon(visual::icon("brand", QColor(visual::light)));
   pages_ = new QStackedWidget;
   setCentralWidget(pages_);
   workspace_ = new QWidget;
@@ -117,6 +117,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   connect(timer_, &QTimer::timeout, this, [this] { refresh(); });
   timer_->start();
   loadPreset();
+  hub_->preview(scenario_);
   pages_->setCurrentWidget(hub_);
 }
 bool MainWindow::loadPreset() {

@@ -232,12 +232,12 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       font.setBold(true);
       font.setPixelSize(10);
       label->setFont(font);
-      label->setDefaultTextColor(QColor(visual::ink));
+      label->setDefaultTextColor(QColor(visual::onMarker));
       label->setPlainText(QString::fromStdString(robot.id));
       label->setPos((Cell - label->boundingRect().width()) / 2, 25);
       auto *glyph = new QGraphicsPixmapItem(group);
       placeGlyph(*glyph, robot.kind == RobotKind::Light ? "robot" : "heavy",
-                 QColor(visual::ink), 20, QPointF(16, 7));
+                 QColor(visual::onMarker), 20, QPointF(16, 7));
       auto *cargo = new QGraphicsPixmapItem(group);
       placeGlyph(*cargo, "cargo", QColor(visual::cargo), 15, QPointF(37, 0));
       auto *battery = new QGraphicsRectItem(12, Cell - 5, 0, 3, group);
@@ -253,8 +253,9 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       if (reduceMotion_) {
         visual.group->setPos(target);
       } else {
-        motions_[robot.id] = {current, target, now,
-                              robot.kind == RobotKind::Light ? 760 : 1160};
+        const int previousDuration = robot.kind == RobotKind::Light ? 760 : 1160;
+        // Speed is inverse to duration. Divide by 1.10 and round to milliseconds.
+        motions_[robot.id] = {current, target, now, (previousDuration * 10 + 5) / 11};
         if (!pausedAt_ && !animationTimer_->isActive())
           animationTimer_->start();
       }
@@ -369,7 +370,7 @@ void WarehouseView::showAction(const Event &event) {
   if (transfer && !reduceMotion_) {
     QPainterPath square;
     square.addRect(-4, -4, 8, 8);
-    token = scene_->addPath(square, QPen(QColor(visual::ink), 1), QBrush(color));
+    token = scene_->addPath(square, QPen(QColor(visual::onMarker), 1), QBrush(color));
     token->setZValue(22);
     token->setData(0, "cargoTransfer");
   }

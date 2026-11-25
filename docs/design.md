@@ -1,22 +1,24 @@
 # Diseño visual de SIMRA
 
-La interfaz organiza la demostración alrededor de un plano técnico de almacén. El fondo claro contiene títulos, controles y datos. El plano oscuro concentra el movimiento, las rutas y los hitos. El color identifica tipos de robot y estados de espera. La silueta y el texto aportan referencias adicionales para distinguirlos.
+La interfaz organiza la demostración alrededor de un plano técnico de almacén. El selector concentra los escenarios en una columna y aprovecha el resto para mostrar un plano real con su guía. Los fondos oscuros de la ventana, el plano y el panel lateral pertenecen a la misma escala.
 
 ## Paleta y reglas de uso
 
 | Familia | Colores | Uso |
 |---|---|---|
-| Superficies | `#F4F5F8` y `#FFFFFF` | Fondo de escritorio y paneles, respectivamente |
-| Tinta | `#182638` y `#46566D` | Títulos y texto de apoyo |
-| Acción | `#3153A4` | Controles primarios y navegación |
-| Plano | `#172334` y `#304259` | Suelo y celdas |
-| Flota | `#8DCCFF` y `#D5B9FF` | Robot ligero y pesado, y sus rutas |
-| Mercancía | `#FFD275` | Paquete en tránsito y marcador de carga |
-| Energía | `#78E4CD` | Estación de recarga y pulsos de energía |
-| Espera y bloqueo | `#FFB079` y `#FF9DAA` | Contención y bloqueo, acompañados de texto |
+| Superficies | `#111217` y `#181B20` | Fondo de escritorio y paneles |
+| Tinta | `#F4F4F4` y `#BEC5D0` | Títulos y texto de apoyo |
+| Acción | `#0F62FE` | Control primario y selección |
+| Plano | `#13161C` y `#313846` | Suelo y celdas |
+| Flota | `#78A9FF` y `#D4BBFF` | Robot ligero y pesado, sus rutas e iconos |
+| Mercancía | `#F1C21B` | Paquete en tránsito y marcador de carga |
+| Energía | `#3DDBD9` | Estación de recarga, batería en carga y pulsos |
+| Espera y bloqueo | `#FFB784` y `#FF8389` | Contención y bloqueo, acompañados de texto |
 | Operaciones | `#9CDCEB` y `#ADDDA3` | Recepción y entrega |
 
 El color se combina con dirección, pictograma y texto. Un cuadrado dorado viaja hacia el robot al recoger y sale de él al dejar una carga. La energía se representa con anillos y un pulso final. Los avisos destacan el resultado junto al lugar en que ocurrió.
+
+Las capas de superficie y el azul de acción siguen la lógica de [IBM Carbon](https://www.carbondesignsystem.com/building-blocks/foundations/color/overview). El contraste moderado entre paneles y el uso localizado de acentos se inspiran en [Grafana](https://grafana.com/developers/plugin-tools/migration-guides/visual-design-refresh).
 
 ## Composición y responsabilidades
 

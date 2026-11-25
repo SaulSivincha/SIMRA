@@ -30,6 +30,25 @@ static QString statusText(RobotStatus status) {
   }
   return {};
 }
+static const char *statusColor(RobotStatus status, RobotKind kind) {
+  switch (status) {
+  case RobotStatus::Waiting:
+    return visual::waiting;
+  case RobotStatus::Blocked:
+    return visual::blocked;
+  case RobotStatus::ToCharge:
+  case RobotStatus::Charging:
+    return visual::energy;
+  case RobotStatus::ToPickup:
+  case RobotStatus::ToDelivery:
+    return kind == RobotKind::Light ? visual::light : visual::heavy;
+  case RobotStatus::Idle:
+    return visual::delivery;
+  case RobotStatus::Stopped:
+    return visual::muted;
+  }
+  return visual::muted;
+}
 RobotMonitor::RobotMonitor(QWidget *parent) : QWidget(parent) {
   auto *outer = new QVBoxLayout(this);
   outer->setContentsMargins(12, 12, 12, 12);
@@ -41,6 +60,8 @@ RobotMonitor::RobotMonitor(QWidget *parent) : QWidget(parent) {
   scroll->setWidgetResizable(true);
   scroll->setFrameShape(QFrame::NoFrame);
   content_ = new QWidget;
+  content_->setObjectName("fleetList");
+  content_->setAutoFillBackground(true);
   layout_ = new QVBoxLayout(content_);
   layout_->setContentsMargins(1, 6, 1, 2);
   layout_->setSpacing(8);
@@ -92,14 +113,21 @@ void RobotMonitor::render(const Snapshot &snapshot, const std::string &focusedRo
     auto &card = it->second;
     if (card.iconKind != robot.kind) {
       card.title->setIcon(visual::icon(
-          robot.kind == RobotKind::Light ? "robot" : "heavy"));
+          robot.kind == RobotKind::Light ? "robot" : "heavy",
+          QColor(robot.kind == RobotKind::Light ? visual::light : visual::heavy)));
       card.iconKind = robot.kind;
     }
     card.title->setChecked(focusedRobot == robot.id);
     card.title->setText(
         QString::fromStdString(robot.id) +
         (robot.kind == RobotKind::Light ? " · ligero" : " · pesado"));
-    card.status->setText(statusText(robot.status));
+    const auto status = statusText(robot.status);
+    const auto statusStyle = QString("color:%1; font-weight:600;")
+                                 .arg(statusColor(robot.status, robot.kind));
+    if (card.status->text() != status)
+      card.status->setText(status);
+    if (card.status->styleSheet() != statusStyle)
+      card.status->setStyleSheet(statusStyle);
     QString detail = robot.carrying.empty()
                          ? "Sin carga"
                          : "Carga: " + QString::fromStdString(robot.carrying);
@@ -109,6 +137,13 @@ void RobotMonitor::render(const Snapshot &snapshot, const std::string &focusedRo
     card.detail->setText(detail);
     card.battery->setRange(0, robot.maxBattery);
     card.battery->setValue(robot.battery);
+    const auto batteryColor = robot.battery * 4 < robot.maxBattery ? visual::blocked
+                              : robot.status == RobotStatus::Charging ? visual::energy
+                                                                     : visual::light;
+    const auto batteryStyle = QString("QProgressBar::chunk {background:%1; border-radius:3px;}")
+                                  .arg(batteryColor);
+    if (card.battery->styleSheet() != batteryStyle)
+      card.battery->setStyleSheet(batteryStyle);
     card.battery->setAccessibleName("Nivel de batería");
     card.thread->setText(robot.threadId.empty()
                              ? "Hilo aún no iniciado"

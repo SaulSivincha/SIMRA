@@ -15,6 +15,9 @@ void applyTheme(QWidget &root) {
   palette.setColor(QPalette::Window, QColor(canvas));
   palette.setColor(QPalette::WindowText, QColor(ink));
   palette.setColor(QPalette::Base, QColor(surface));
+  palette.setColor(QPalette::AlternateBase, QColor(canvas));
+  palette.setColor(QPalette::Button, QColor(surface));
+  palette.setColor(QPalette::ButtonText, QColor(ink));
   palette.setColor(QPalette::Text, QColor(ink));
   palette.setColor(QPalette::Highlight, QColor(primary));
   palette.setColor(QPalette::HighlightedText, Qt::white);
@@ -29,33 +32,34 @@ void applyTheme(QWidget &root) {
     QLabel[role="metric"] { font-size: 25px; font-weight: 700; }
     QLabel[role="muted"] { color: %5; }
     QLabel[role="caption"] { color: %5; font-size: 12px; }
-    QLabel[role="wordmark"] { color: %6; font-size: 16px; font-weight: 700; }
+    QLabel[role="wordmark"] { color: #A6C8FF; font-size: 16px; font-weight: 700; }
     QLabel[role="identifier"] { color: %5; font-family: monospace; font-size: 12px; }
     QPushButton { background: %3; border: 1px solid %4; border-radius: 8px;
                   min-height: 24px; padding: 8px 13px; font-weight: 600; }
-    QPushButton:hover { background: #E8EEFC; border-color: #7D94D0; }
-    QPushButton:focus { border: 2px solid %6; padding: 7px 12px; }
+    QPushButton:hover { background: #252B35; border-color: #68778F; }
+    QPushButton:focus { border: 2px solid #A6C8FF; padding: 7px 12px; }
     QPushButton[variant="primary"] { background: %6; color: white; border-color: %6; }
-    QPushButton[variant="primary"]:hover { background: #26458D; }
+    QPushButton[variant="primary"]:hover { background: #0050E6; }
     QPushButton[variant="primary"]:focus { border-color: #AFC3FC; }
     QPushButton:disabled, QPushButton[variant="primary"]:disabled {
-      background: #E8EDF5; color: %5; border-color: %4;
+      background: #22262E; color: %5; border-color: %4;
     }
     QPushButton[variant="scenario"], QPushButton[variant="robot"] { text-align:left; }
     QPushButton[variant="scenario"] { font-size: 16px; border-color: transparent; }
-    QPushButton[variant="scenario"]:hover { border-color: #7D94D0; }
-    QPushButton[variant="scenario"]:focus { border-color: %6; }
-    QPushButton[variant="robot"]:checked { background: #E8EEFC; border-color: #7D94D0; }
+    QPushButton[variant="scenario"]:hover { border-color: #68778F; }
+    QPushButton[variant="scenario"]:focus { border-color: #A6C8FF; }
+    QPushButton[variant="robot"]:checked { background: #263750; border-color: #78A9FF; }
     QTabWidget::pane { border: 1px solid %4; background: %3; border-radius: 8px; }
-    QTabBar::tab { background: #E8EDF5; color: %5; margin-right: 4px;
+    QTabBar::tab { background: #22262E; color: %5; margin-right: 4px;
                   padding: 9px 13px; border: 1px solid %4;
                   border-top-left-radius: 7px; border-top-right-radius: 7px; }
     QTabBar::tab:selected { background: %3; color: %1; font-weight: 700; }
-    QTabBar::tab:focus { border-color: %6; }
+    QTabBar::tab:focus { border-color: #A6C8FF; }
     QSplitter::handle { background: %2; }
     QScrollArea { border: 0; background: %3; }
-    QProgressBar { border: 0; border-radius: 3px; background: #D5DEEC; }
-    QProgressBar::chunk { background: %6; border-radius: 3px; }
+    QWidget#fleetList { background: %3; }
+    QProgressBar { border: 0; border-radius: 3px; background: #373D47; }
+    QProgressBar::chunk { background: #78A9FF; border-radius: 3px; }
   )QSS").arg(ink, canvas, surface, border, muted, primary));
 }
 
@@ -106,7 +110,7 @@ QHBoxLayout *mapLegend(bool showRoutes) {
   layout->setSpacing(7);
   const auto item = [&](const char *name, const char *text, const char *color) {
     auto *glyph = new QLabel;
-    glyph->setPixmap(symbol(name, QColor(color).darker(210), 17));
+    glyph->setPixmap(symbol(name, QColor(color), 17));
     layout->addWidget(glyph);
     layout->addWidget(label(text, "caption"));
     layout->addSpacing(6);
