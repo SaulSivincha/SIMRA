@@ -46,8 +46,9 @@ ScenarioHub::ScenarioHub(std::function<void(int)> openPreset,
     const auto &scenario = visual::scenarios[index];
     auto *card = visual::panel();
     auto *body = new QVBoxLayout(card);
-    body->setContentsMargins(8, 5, 8, 9);
-    body->setSpacing(2);
+    body->setContentsMargins(9, 6, 9, 6);
+    body->setSpacing(3);
+    body->setAlignment(Qt::AlignVCenter);
     auto *button = new QPushButton(visual::icon(scenario.symbol, QColor(accent[index])),
                                    scenario.title);
     button->setObjectName(QString("preset%1").arg(index));
@@ -69,28 +70,8 @@ ScenarioHub::ScenarioHub(std::function<void(int)> openPreset,
     concepts->setWordWrap(true);
     concepts->setContentsMargins(9, 0, 9, 0);
     body->addWidget(concepts);
-    list->addWidget(card);
+    list->addWidget(card, 1);
   }
-  auto *key = visual::panel();
-  auto *keyLayout = new QVBoxLayout(key);
-  keyLayout->setContentsMargins(12, 9, 12, 9);
-  keyLayout->setSpacing(4);
-  keyLayout->addWidget(visual::label("Cómo leer la simulación", "section"));
-  const auto addHint = [&](const char *symbol, const char *color, const char *text) {
-    auto *row = new QHBoxLayout;
-    auto *glyph = new QLabel;
-    glyph->setPixmap(visual::symbol(symbol, QColor(color), 18));
-    auto *message = visual::label(text, "caption");
-    message->setWordWrap(true);
-    row->addWidget(glyph);
-    row->addWidget(message, 1);
-    keyLayout->addLayout(row);
-  };
-  addHint("route", visual::light, "Línea punteada: recorrido previsto.");
-  addHint("cargo", visual::cargo, "Cuadrado dorado: paquete que entra o sale del robot.");
-  addHint("charge", visual::energy, "Pulso turquesa: transferencia de energía.");
-  list->addWidget(key);
-  list->addStretch();
   columns->addWidget(catalog, 4);
 
   auto *guide = visual::panel();

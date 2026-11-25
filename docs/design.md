@@ -1,6 +1,6 @@
 # Diseño visual de SIMRA
 
-La interfaz organiza la demostración alrededor de un plano técnico de almacén. El selector concentra los escenarios en una columna y aprovecha el resto para mostrar un plano real con su guía. Los fondos oscuros de la ventana, el plano y el panel lateral pertenecen a la misma escala.
+La interfaz organiza la demostración alrededor de un plano técnico de almacén. El selector distribuye los cuatro escenarios a lo largo de una columna. A su lado se muestran el plano del escenario enfocado, las dimensiones, la cantidad de robots y la leyenda. Los fondos oscuros de la ventana, el plano y el panel lateral pertenecen a la misma escala.
 
 ## Paleta y reglas de uso
 
