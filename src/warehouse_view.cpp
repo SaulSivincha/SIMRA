@@ -227,7 +227,7 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     const auto current = displayedPosition(robot.id, now);
     if (QLineF(current, target).length() > 0.1) {
       motions_[robot.id] = {current, target, now,
-                            robot.kind == RobotKind::Light ? 340 : 540};
+                            robot.kind == RobotKind::Light ? 380 : 580};
       animationTimer_->start();
     }
     QColor color = robot.kind == RobotKind::Light ? QColor("#2563EB")
@@ -320,7 +320,7 @@ void WarehouseView::showMilestone(const QString &title, const QString &detail,
   bubble->setZValue(-1);
   milestoneRobot_ = robotId;
   positionMilestone();
-  milestoneTimer_->start(4000);
+  milestoneTimer_->start(6000);
 }
 void WarehouseView::render(const Snapshot &snapshot,
                            const std::optional<RouteOverlay> &route) {
