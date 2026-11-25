@@ -1,7 +1,9 @@
 #pragma once
 #include "simra/state.hpp"
+#include <QColor>
 #include <QGraphicsView>
 #include <QPointF>
+#include <QSizeF>
 #include <chrono>
 #include <functional>
 #include <map>
@@ -13,6 +15,7 @@ class QGraphicsPathItem;
 class QGraphicsRectItem;
 class QGraphicsScene;
 class QGraphicsTextItem;
+class QString;
 class QTimer;
 namespace simra {
 struct RouteOverlay {
@@ -39,6 +42,10 @@ class WarehouseView final : public QGraphicsView {
   std::map<std::string, RobotVisual> robotVisuals_;
   std::map<std::string, Motion> motions_;
   std::vector<QGraphicsItem *> routeItems_;
+  QGraphicsItemGroup *milestoneModal_{};
+  std::string milestoneRobot_;
+  QSizeF milestoneSize_;
+  QTimer *milestoneTimer_{};
   bool mapReady_{};
   int width_{}, height_;
   static constexpr int Cell = 52;
@@ -51,6 +58,7 @@ class WarehouseView final : public QGraphicsView {
   QPointF displayedPosition(const std::string &id,
                             std::chrono::steady_clock::time_point now) const;
   void advanceAnimations();
+  void positionMilestone();
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
@@ -65,6 +73,8 @@ public:
     editHandler_ = std::move(handler);
   }
   void resetAnimation();
+  void showMilestone(const QString &title, const QString &detail,
+                     const QColor &accent, const std::string &robotId);
   void render(const Snapshot &snapshot,
               const std::optional<RouteOverlay> &route = {});
 };

@@ -14,7 +14,7 @@
 namespace simra {
 WarehouseView::WarehouseView(QWidget *parent)
     : QGraphicsView(parent), scene_(new QGraphicsScene(this)),
-      animationTimer_(new QTimer(this)) {
+      animationTimer_(new QTimer(this)), milestoneTimer_(new QTimer(this)) {
   setScene(scene_);
   setRenderHint(QPainter::Antialiasing);
   setBackgroundBrush(QColor("#172235"));
@@ -26,6 +26,12 @@ WarehouseView::WarehouseView(QWidget *parent)
   animationTimer_->setInterval(1000 / 30);
   connect(animationTimer_, &QTimer::timeout, this,
           [this] { advanceAnimations(); });
+  milestoneTimer_->setSingleShot(true);
+  connect(milestoneTimer_, &QTimer::timeout, this, [this] {
+    delete milestoneModal_;
+    milestoneModal_ = nullptr;
+    milestoneRobot_.clear();
+  });
 }
 void WarehouseView::fitMap() {
   if (width_ && height_)
@@ -54,9 +60,12 @@ void WarehouseView::resetAnimation() {
 }
 void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   animationTimer_->stop();
+  milestoneTimer_->stop();
   motions_.clear();
   robotVisuals_.clear();
   routeItems_.clear();
+  milestoneModal_ = nullptr;
+  milestoneRobot_.clear();
   scene_->clear();
   const auto &config = snapshot.scenario;
   width_ = config.width;
@@ -269,8 +278,49 @@ void WarehouseView::advanceAnimations() {
     robotVisuals_.at(id).group->setPos(displayedPosition(id, now));
     moving = moving || elapsed < motion.durationMs;
   }
+  positionMilestone();
   if (!moving)
     animationTimer_->stop();
+}
+void WarehouseView::positionMilestone() {
+  if (!milestoneModal_)
+    return;
+  const auto robot = robotVisuals_.find(milestoneRobot_);
+  if (robot == robotVisuals_.end()) {
+    milestoneModal_->setPos((scene_->width() - milestoneSize_.width()) / 2, 8);
+    return;
+  }
+  const auto position = robot->second.group->pos();
+  const auto x = std::clamp(position.x() + Cell / 2 - milestoneSize_.width() / 2,
+                            4.0, scene_->width() - milestoneSize_.width() - 4.0);
+  const auto above = position.y() - milestoneSize_.height() - 10;
+  const auto y = above >= 4.0 ? above : position.y() + Cell + 10.0;
+  milestoneModal_->setPos(x, y);
+}
+void WarehouseView::showMilestone(const QString &title, const QString &detail,
+                                  const QColor &accent,
+                                  const std::string &robotId) {
+  delete milestoneModal_;
+  milestoneModal_ = new QGraphicsItemGroup;
+  milestoneModal_->setZValue(30);
+  scene_->addItem(milestoneModal_);
+  auto *text = new QGraphicsTextItem(milestoneModal_);
+  text->setDefaultTextColor(QColor("#F8FAFC"));
+  text->setTextWidth(230);
+  text->setHtml("<b>" + title + "</b><br>" + detail);
+  text->setPos(10, 7);
+  milestoneSize_ = {250, text->boundingRect().height() + 14};
+  auto *bubble = new QGraphicsPathItem(milestoneModal_);
+  QPainterPath shape;
+  shape.addRoundedRect(0, 0, milestoneSize_.width(), milestoneSize_.height(),
+                       8, 8);
+  bubble->setPath(shape);
+  bubble->setPen(QPen(accent, 2));
+  bubble->setBrush(QBrush(QColor("#0F172A")));
+  bubble->setZValue(-1);
+  milestoneRobot_ = robotId;
+  positionMilestone();
+  milestoneTimer_->start(4000);
 }
 void WarehouseView::render(const Snapshot &snapshot,
                            const std::optional<RouteOverlay> &route) {
@@ -281,5 +331,6 @@ void WarehouseView::render(const Snapshot &snapshot,
     rebuildMap(snapshot);
   updateRoute(snapshot, route);
   updateRobots(snapshot, route);
+  positionMilestone();
 }
 } // namespace simra

@@ -101,16 +101,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     status_->setText(paused ? "Simulación en ejecución" : "Simulación pausada");
   });
   pause_->setObjectName("pauseSimulation");
-  concept_ = new QLabel;
-  concept_->setObjectName("demonstrationGuide");
-  concept_->setWordWrap(true);
-  concept_->setStyleSheet(
-      "background:#1E293B;color:#CBD5E1;padding:12px;border-radius:8px;");
-  root->addWidget(concept_);
-  moment_ = new QLabel;
-  moment_->setObjectName("conceptMoment");
-  moment_->setWordWrap(true);
-  root->addWidget(moment_);
   auto *split = new QSplitter(Qt::Horizontal);
   root->addWidget(split, 1);
   view_ = new WarehouseView;
@@ -315,22 +305,6 @@ void MainWindow::render(const Snapshot &s) {
       }
     }
   }
-  const QStringList explanations = {
-      "Observa dos robots trabajando a la vez. Cada uno tiene su propio hilo. "
-      "Recogen mercancía junto al estante y la llevan a entrega o reposición.",
-      "Observa robots ligeros y pesados. El motor usa la misma interfaz Robot "
-      "y cada tipo define capacidad, consumo y velocidad mediante "
-      "polimorfismo.",
-      "Observa el paso por el pasillo compartido. El mutex permite ocupar una "
-      "celda a un solo robot. Las esperas aparecen en ámbar.",
-      "Observa la estación C. Los robots solicitan una reserva exclusiva, "
-      "esperan su turno y recuperan batería antes de salir."};
-  concept_->setText(explanations.value(scenarioIndex_) +
-                    (engine_ ? "\nLa línea discontinua muestra una ruta BFS. "
-                               "La caja amarilla indica mercancía en custodia."
-                             : "\nPulsa Iniciar demostración. Los pedidos de "
-                               "ejemplo se crean automáticamente."));
-  updateConceptMoment(s);
   view_->render(s, overlay);
   auto robotSnapshot = s;
   if (robotSnapshot.robots.empty())
@@ -354,136 +328,47 @@ void MainWindow::render(const Snapshot &s) {
     status_->setText("Demostración finalizada. Puedes reiniciarla.");
   }
 }
-void MainWindow::updateConceptMoment(const Snapshot &snapshot) {
-  if (milestoneFrames_ > 0) {
-    --milestoneFrames_;
-    return;
-  }
-  const auto busy = [](const RobotView &robot) {
-    return robot.status != RobotStatus::Idle && robot.status != RobotStatus::Stopped;
-  };
-  const auto active = std::count_if(snapshot.robots.begin(), snapshot.robots.end(), busy);
-  if (scenarioIndex_ == 0) {
-    if (active >= 2)
-      setConceptMoment("HILOS EN EJECUCIÓN",
-                "dos trabajadores avanzan de forma independiente sobre el mismo almacén.",
-                "#38BDF8", "#0C2942");
-    else
-      setConceptMoment("RUTA BFS CALCULADA",
-                "la línea discontinua representa el camino que seguirá el robot.",
-                "#60A5FA", "#172554");
-    return;
-  }
-  if (scenarioIndex_ == 1) {
-    const auto light = std::find_if(snapshot.robots.begin(), snapshot.robots.end(),
-                                    [&](const auto &robot) {
-                                      return robot.kind == RobotKind::Light && busy(robot);
-                                    });
-    const auto heavy = std::find_if(snapshot.robots.begin(), snapshot.robots.end(),
-                                    [&](const auto &robot) {
-                                      return robot.kind == RobotKind::Heavy && busy(robot);
-                                    });
-    if (light != snapshot.robots.end() && heavy != snapshot.robots.end())
-      setConceptMoment("POLIMORFISMO ACTIVO",
-                "la misma interfaz Robot coordina un ligero y un pesado con reglas propias.",
-                "#C084FC", "#2E1065");
-    else
-      setConceptMoment("HERENCIA DE ROBOTS",
-                "LightRobot y HeavyRobot especializan capacidad, consumo y velocidad.",
-                "#C084FC", "#2E1065");
-    return;
-  }
-  if (scenarioIndex_ == 2) {
-    const auto waiting = std::find_if(snapshot.robots.begin(), snapshot.robots.end(),
-                                      [](const auto &robot) {
-                                        return robot.status == RobotStatus::Waiting ||
-                                               robot.status == RobotStatus::Blocked;
-                                      });
-    if (waiting != snapshot.robots.end()) {
-      const auto resource = waiting->waitingFor.empty()
-                                ? QString("la zona crítica")
-                                : QString::fromStdString(waiting->waitingFor);
-      setConceptMoment("MUTEX ACTIVADO",
-                QString::fromStdString(waiting->id) + " espera " + resource +
-                    "; solo un robot puede usar el recurso a la vez.",
-                "#F59E0B", "#451A03");
-    } else if (snapshot.metrics.conflicts > 0) {
-      setConceptMoment("EXCLUSIÓN MUTUA VERIFICADA",
-                "la coordinación evitó que dos robots ocuparan la misma celda.",
-                "#F59E0B", "#451A03");
-    } else {
-      setConceptMoment("PASILLO CRÍTICO",
-                "el motor vigila la ocupación exclusiva antes de cada movimiento.",
-                "#FBBF24", "#422006");
-    }
-    return;
-  }
-  if (!snapshot.stationReservations.empty()) {
-    const auto &[station, robot] = snapshot.stationReservations.front();
-    setConceptMoment("RECURSO COMPARTIDO RESERVADO",
-              QString::fromStdString(robot + " posee " + station) +
-                  "; los demás hilos esperan su liberación.",
-              "#2DD4BF", "#134E4A");
-  } else {
-    setConceptMoment("RESERVA EXCLUSIVA DE RECARGA",
-              "la estación admite un único robot y coordina el acceso concurrente.",
-              "#2DD4BF", "#134E4A");
-  }
-}
-void MainWindow::setConceptMoment(const QString &title, const QString &detail,
-                                  const QString &accent,
-                                  const QString &background) {
-  moment_->setText("<b>" + title + "</b> · " + detail);
-  moment_->setStyleSheet("background:" + background + ";color:#E2E8F0;"
-                         "border-left:5px solid " + accent +
-                         ";padding:10px 12px;border-radius:6px;");
-}
 void MainWindow::showMilestone(const Event &event) {
   const auto actor = event.robotId.empty()
                          ? QString("El sistema")
                          : QString::fromStdString(event.robotId);
   const auto detail = actor + " · " + QString::fromStdString(event.text);
+  auto show = [this, &detail, &event](const QString &title,
+                                      const QColor &accent) {
+    view_->showMilestone(title, detail, accent, event.robotId);
+  };
   switch (event.kind) {
   case EventKind::ThreadStarted:
-    setConceptMoment("HILO CREADO", detail,
-                     "#38BDF8", "#0C2942");
+    show("HILO CREADO", QColor("#38BDF8"));
     break;
   case EventKind::OrderAssigned:
-    setConceptMoment(scenarioIndex_ == 1 ? "POLIMORFISMO EN ACCIÓN"
-                                          : "TRABAJO ASIGNADO",
-                     detail, "#60A5FA", "#172554");
+    show(scenarioIndex_ == 1 ? "POLIMORFISMO EN ACCIÓN"
+                              : "TRABAJO ASIGNADO",
+         QColor("#60A5FA"));
     break;
   case EventKind::ResourceAcquired:
-    setConceptMoment("RECURSO ADQUIRIDO", detail,
-                     "#2DD4BF", "#134E4A");
+    show("RECURSO ADQUIRIDO", QColor("#2DD4BF"));
     break;
   case EventKind::ResourceReleased:
-    setConceptMoment("RECURSO LIBERADO", detail,
-                     "#34D399", "#064E3B");
+    show("RECURSO LIBERADO", QColor("#34D399"));
     break;
   case EventKind::MutexWait:
-    setConceptMoment("MUTEX: ESPERA CONTROLADA", detail,
-                     "#F59E0B", "#451A03");
+    show("MUTEX: ESPERA CONTROLADA", QColor("#F59E0B"));
     break;
   case EventKind::WaitCycleDetected:
-    setConceptMoment("CICLO DE ESPERA DETECTADO", detail,
-                     "#FB7185", "#4C0519");
+    show("CICLO DE ESPERA DETECTADO", QColor("#FB7185"));
     break;
   case EventKind::WaitCycleRecovered:
-    setConceptMoment("CICLO DE ESPERA RECUPERADO", detail,
-                     "#FBBF24", "#422006");
+    show("CICLO DE ESPERA RECUPERADO", QColor("#FBBF24"));
     break;
   case EventKind::ChargingStarted:
-    setConceptMoment("SECCIÓN CRÍTICA DE RECARGA", detail,
-                     "#2DD4BF", "#134E4A");
+    show("SECCIÓN CRÍTICA DE RECARGA", QColor("#2DD4BF"));
     break;
   case EventKind::ChargingCompleted:
-    setConceptMoment("RECARGA COMPLETADA", detail,
-                     "#34D399", "#064E3B");
+    show("RECARGA COMPLETADA", QColor("#34D399"));
     break;
   case EventKind::Generic:
     return;
   }
-  milestoneFrames_ = 30;
 }
 } // namespace simra

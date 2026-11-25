@@ -6,7 +6,6 @@
 #include <QMainWindow>
 class QLabel;
 class QPushButton;
-class QString;
 class QTimer;
 class QTabWidget;
 class QStackedWidget;
@@ -19,7 +18,6 @@ class MainWindow final : public QMainWindow {
   RobotMonitor *monitor_{};
   StatisticsPanel *metrics_{};
   QLabel *status_{}, *scenarioName_{};
-  QLabel *concept_{}, *moment_{};
   QTimer *timer_{};
   QTabWidget *rightTabs_{};
   QStackedWidget *pages_{};
@@ -28,12 +26,8 @@ class MainWindow final : public QMainWindow {
   QPushButton *start_{}, *pause_{};
   int scenarioIndex_{};
   int nextOrder_{1};
-  int milestoneFrames_{};
   std::string selectedRobot_;
   void render(const Snapshot &);
-  void updateConceptMoment(const Snapshot &);
-  void setConceptMoment(const QString &, const QString &, const QString &,
-                        const QString &);
   void showMilestone(const Event &);
   void refresh();
   void loadPreset();

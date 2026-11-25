@@ -42,13 +42,8 @@ int main(int argc, char **argv) {
   CHECK(!start->isEnabled());
   auto *currentScenario = window.findChild<QLabel *>("currentScenario");
   CHECK(currentScenario && !currentScenario->text().isEmpty());
-  auto *guide = window.findChild<QLabel *>("demonstrationGuide");
-  CHECK(guide && guide->text().contains("hilo"));
-  auto *moment = window.findChild<QLabel *>("conceptMoment");
-  CHECK(moment && QTest::qWaitFor([&] {
-    return moment->text().contains("HILO") ||
-           moment->text().contains("TRABAJO ASIGNADO");
-  }));
+  CHECK(!window.findChild<QLabel *>("demonstrationGuide"));
+  CHECK(!window.findChild<QLabel *>("conceptMoment"));
   auto *panels = window.findChild<QTabWidget *>();
   CHECK(panels && panels->count() == 2);
   CHECK(panels->tabText(0) == "Robots");
