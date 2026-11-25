@@ -14,6 +14,12 @@
 #include <QVBoxLayout>
 
 namespace simra {
+static Scenario readPreset(int index) {
+  const auto path = QString(SIMRA_SOURCE_DIR) + "/scenarios/" +
+                    visual::scenarios.at(index).id + ".json";
+  return loadScenario(path.toStdString());
+}
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   setWindowTitle("SIMRA · Robots de almacén");
   resize(1440, 900);
@@ -30,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           return;
         pages_->setCurrentWidget(workspace_);
         start_->setFocus();
-      });
+      }, readPreset);
   pages_->addWidget(hub_);
   auto *root = new QVBoxLayout(workspace_);
   root->setContentsMargins(22, 16, 22, 16);
@@ -113,19 +119,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   split->setStretchFactor(0, 1);
   split->setSizes({995, 370});
   timer_ = new QTimer(this);
-  timer_->setInterval(100);
+  timer_->setTimerType(Qt::PreciseTimer);
+  timer_->setInterval(33);
   connect(timer_, &QTimer::timeout, this, [this] { refresh(); });
   timer_->start();
   loadPreset();
-  hub_->preview(scenario_);
   pages_->setCurrentWidget(hub_);
 }
 bool MainWindow::loadPreset() {
   try {
     const auto &presentation = visual::scenarios.at(scenarioIndex_);
-    auto path = QString(SIMRA_SOURCE_DIR) + "/scenarios/" +
-                presentation.id + ".json";
-    auto candidate = loadScenario(path.toStdString());
+    auto candidate = readPreset(scenarioIndex_);
     if (engine_)
       stopSimulation();
     engine_.reset();

@@ -32,7 +32,7 @@ class WarehouseView final : public QGraphicsView {
     std::vector<Position> routeCells;
   };
   struct Motion {
-    QPointF from, to;
+    QPointF from, via, to;
     std::chrono::steady_clock::time_point started;
     int durationMs{};
   };
@@ -72,7 +72,7 @@ class WarehouseView final : public QGraphicsView {
   static constexpr int Cell = 52;
   void fitMap();
   void rebuildMap(const Snapshot &snapshot);
-  void updateRoute(const RobotVisual &robot);
+  void updateRoute(const std::string &id, const RobotVisual &robot);
   void updateRobots(const Snapshot &snapshot, const std::string &focusedRobot);
   QPointF displayedPosition(const std::string &id,
                             std::chrono::steady_clock::time_point now) const;

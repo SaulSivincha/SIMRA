@@ -1,4 +1,5 @@
 #include "simra/warehouse_view.hpp"
+#include "simra/demo_program.hpp"
 #include "visual_system.hpp"
 #include <QCoreApplication>
 #include <QGraphicsEllipseItem>
@@ -180,12 +181,18 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   mapReady_ = true;
   fitMap();
 }
-void WarehouseView::updateRoute(const RobotVisual &robot) {
+void WarehouseView::updateRoute(const std::string &id, const RobotVisual &robot) {
   const QPointF center(Cell / 2.0, Cell / 2.0);
   const auto current = robot.group->pos();
   QPainterPath path;
   if (current != robot.target || !robot.routeCells.empty()) {
     path.moveTo(current + center);
+    if (const auto it = motions_.find(id); it != motions_.end()) {
+      const auto &via = it->second.via;
+      if (QLineF(via, current).length() + QLineF(current, robot.target).length() >
+          QLineF(via, robot.target).length() + 0.01)
+        path.lineTo(via + center);
+    }
     if (current != robot.target)
       path.lineTo(robot.target + center);
     for (const auto cell : robot.routeCells)
@@ -204,7 +211,18 @@ QPointF WarehouseView::displayedPosition(
                            .count();
   const auto linear =
       std::clamp(double(elapsed) / found->second.durationMs, 0.0, 1.0);
-  return found->second.from + (found->second.to - found->second.from) * linear;
+  const auto &motion = found->second;
+  if (linear >= 1.0)
+    return motion.to;
+  const auto firstLength = QLineF(motion.from, motion.via).length();
+  const auto lastLength = QLineF(motion.via, motion.to).length();
+  const auto distance = linear * (firstLength + lastLength);
+  if (distance < firstLength)
+    return motion.from + (motion.via - motion.from) * (distance / firstLength);
+  if (lastLength == 0)
+    return motion.to;
+  return motion.via + (motion.to - motion.via) *
+                          ((distance - firstLength) / lastLength);
 }
 void WarehouseView::updateRobots(const Snapshot &snapshot,
                                  const std::string &focusedRobot) {
@@ -247,15 +265,24 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       group->setPos(target);
     }
     auto &visual = it->second;
+    const auto route = snapshot.plannedRoutes.find(robot.id);
     if (visual.target != target) {
       const auto current = displayedPosition(robot.id, now);
+      const auto previousTarget = visual.target;
       visual.target = target;
       if (reduceMotion_) {
         visual.group->setPos(target);
       } else {
-        const int previousDuration = robot.kind == RobotKind::Light ? 760 : 1160;
-        // Speed is inverse to duration. Divide by 1.10 and round to milliseconds.
-        motions_[robot.id] = {current, target, now, (previousDuration * 10 + 5) / 11};
+        const bool light = robot.kind == RobotKind::Light;
+        const int stepMs = light ? LightRobot{}.stepMs() : HeavyRobot{}.stepMs();
+        const int cadence = stepMs * 100 / demoSpeedPercent;
+        // On a continuous route, cover one motor step plus a small allowance
+        // for the UI sample clock. Finish the previous cell before turning.
+        const bool continuing = route != snapshot.plannedRoutes.end() &&
+                                robot.status != RobotStatus::Waiting &&
+                                robot.status != RobotStatus::Blocked;
+        const int duration = continuing ? cadence + 18 : (light ? 691 : 1055);
+        motions_[robot.id] = {current, previousTarget, target, now, duration};
         if (!pausedAt_ && !animationTimer_->isActive())
           animationTimer_->start();
       }
@@ -272,7 +299,6 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     visual.focus->setPen(QPen(color, 3));
     visual.focus->setBrush(Qt::NoBrush);
     const bool focused = focusedRobot == robot.id;
-    const auto route = snapshot.plannedRoutes.find(robot.id);
     if (route == snapshot.plannedRoutes.end())
       visual.routeCells.clear();
     else
@@ -283,7 +309,7 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
                              Qt::RoundCap, Qt::RoundJoin));
     visual.route->setZValue(focused ? 5 : 4);
     visual.focus->setVisible(focused);
-    updateRoute(visual);
+    updateRoute(robot.id, visual);
     visual.cargo->setVisible(!robot.carrying.empty());
     const double battery = robot.maxBattery > 0
                                ? double(robot.battery) / robot.maxBattery
@@ -318,7 +344,7 @@ void WarehouseView::advanceAnimations() {
                              .count();
     auto &robot = robotVisuals_.at(id);
     robot.group->setPos(displayedPosition(id, now));
-    updateRoute(robot);
+    updateRoute(id, robot);
     if (elapsed >= motion.durationMs)
       it = motions_.erase(it);
     else

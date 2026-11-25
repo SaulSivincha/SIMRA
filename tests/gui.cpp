@@ -112,11 +112,20 @@ int main(int argc, char **argv) {
   CHECK(basicDemo->hasFocus());
   window.resize(1024, 650);
   constexpr std::array fleetSizes{4, 6, 3};
+  auto *preview = window.findChild<QGraphicsView *>("scenarioPreview");
+  CHECK(preview);
+  const auto countRobots = [](const QGraphicsScene &scene) {
+    int robots = 0;
+    for (const auto *item : scene.items())
+      robots += item->type() == QGraphicsItemGroup::Type && item->zValue() == 10;
+    return robots;
+  };
   for (int index = 1; index <= int(fleetSizes.size()); ++index) {
     const auto name = QString("preset%1").arg(index).toLatin1();
     auto *preset = button(name.constData());
     CHECK(!preset->icon().pixmap(24, 24).isNull());
     preset->setFocus();
+    CHECK(preview->isVisible() && countRobots(*preview->scene()) == fleetSizes[index - 1]);
     QTest::keyClick(preset, Qt::Key_Space);
     CHECK(map->isVisible() && start->hasFocus());
     CHECK(currentScenario->text() == preset->text());

@@ -4,6 +4,8 @@
 
 Compila con los comandos del README y abre `./build/simra`. En Inicio elige uno de los cuatro escenarios: **Hilos y pedidos concurrentes**, **Herencia y polimorfismo**, **Mutex: pasillo compartido** o **Sincronización: recarga compartida**. Cada tarjeta lista los conceptos que se estudian antes de abrir el plano.
 
+Pasa el cursor sobre un escenario o selecciónalo con **Tab** para ver su plano y cuántos robots incluye. Pulsa **Espacio** o haz clic para abrirlo.
+
 - **Hilos y pedidos concurrentes** combina reposición y entregas con prioridades. Los pedidos pendientes se reflejan en el buffer mientras los robots atienden los asignados.
 - **Herencia y polimorfismo** combina cargas de 5 y 25 kg. El aviso de asignación muestra el peso y la capacidad del robot seleccionado.
 - **Mutex: pasillo compartido** incorpora seis entregas a una misma estación y una reposición. Los avisos señalan la espera, la reserva y la liberación del recurso. Los ciclos dependen de la interacción de los hilos.
