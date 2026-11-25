@@ -6,7 +6,7 @@ SIMRA permite observar cómo robots ligeros y pesados compiten por pedidos, celd
 
 ## Compilación
 
-Requiere C++20, CMake 3.21+, Qt 6 Core/Widgets y un compilador con `std::thread`. En Arch Linux: `sudo pacman -S cmake gcc qt6-base`.
+Requiere C++20, CMake 3.21+, Qt 6 Core, Widgets y SVG, y un compilador con `std::thread`. En Arch Linux: `sudo pacman -S cmake gcc qt6-base qt6-svg`.
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
@@ -22,7 +22,7 @@ En algunos escritorios KDE, la captura sin pantalla requiere `QT_QPA_PLATFORMTHE
 1. Elige una demostración desde Inicio.
 2. Pulsa **Iniciar demostración**. Se preparan una entrega y una reposición con la mercancía disponible.
 3. Observa el desplazamiento, la ruta discontinua, la caja amarilla y la batería de cada robot. La explicación sobre el mapa indica el concepto del escenario.
-4. Usa **Pausar/Reanudar** para examinar un estado. Vuelve a **Inicio** para elegir otra demostración; la ejecución anterior termina de forma segura.
+4. Usa **Pausar/Reanudar** para examinar un estado. Vuelve a **Escenarios** para elegir otra demostración.
 
 
 ## Estructura

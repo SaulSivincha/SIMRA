@@ -10,7 +10,10 @@ int main(int argc, char **argv) {
     QString mode = QString::fromLocal8Bit(argv[1]);
     QString path = QString::fromLocal8Bit(argv[argc - 1]);
     if (mode == "--screenshot-demo" || mode == "--screenshot-stats") {
-      window.startDemo();
+      bool valid = true;
+      const int scenario = argc == 4 ? QString::fromLocal8Bit(argv[2]).toInt(&valid) : 0;
+      if (!valid || !window.startDemo(scenario))
+        return 1;
       if (mode == "--screenshot-stats")
         window.showStatistics();
     } else if (mode != "--screenshot-home") {

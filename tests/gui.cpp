@@ -3,12 +3,14 @@
 #include <QApplication>
 #include <QGraphicsItemGroup>
 #include <QGraphicsPathItem>
+#include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QLabel>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QTest>
 #include <cmath>
+#include <array>
 
 int main(int argc, char **argv) {
   QApplication app(argc, argv);
@@ -22,6 +24,7 @@ int main(int argc, char **argv) {
   };
   auto *basicDemo = button("preset0");
   CHECK(basicDemo->isVisible());
+  CHECK(!basicDemo->icon().pixmap(24, 24).isNull());
   CHECK(basicDemo->text() == "Hilos y pedidos concurrentes");
   auto *basicConcept =
       window.findChild<QLabel *>("scenarioConcept0");
@@ -29,7 +32,7 @@ int main(int argc, char **argv) {
       window.findChild<QLabel *>("scenarioConcept3");
   CHECK(basicConcept && basicConcept->text().contains("Cola segura"));
   CHECK(chargingConcept &&
-        chargingConcept->text().contains("Reserva exclusiva"));
+        chargingConcept->text().contains("reserva exclusiva", Qt::CaseInsensitive));
   QTest::mouseClick(basicDemo, Qt::LeftButton);
   auto *map = window.findChild<QGraphicsView *>("warehouseMap");
   CHECK(map && map->isVisible());
@@ -100,4 +103,26 @@ int main(int argc, char **argv) {
   auto *home = button("homeScreen");
   QTest::mouseClick(home, Qt::LeftButton);
   CHECK(basicDemo->isVisible());
+  CHECK(basicDemo->hasFocus());
+  window.resize(1024, 650);
+  constexpr std::array fleetSizes{4, 6, 3};
+  for (int index = 1; index <= int(fleetSizes.size()); ++index) {
+    const auto name = QString("preset%1").arg(index).toLatin1();
+    auto *preset = button(name.constData());
+    CHECK(!preset->icon().pixmap(24, 24).isNull());
+    preset->setFocus();
+    QTest::keyClick(preset, Qt::Key_Space);
+    CHECK(map->isVisible() && start->hasFocus());
+    CHECK(currentScenario->text() == preset->text());
+    int robots = 0, glyphs = 0;
+    for (const auto *item : map->scene()->items()) {
+      robots += item->type() == QGraphicsItemGroup::Type && item->zValue() == 10;
+      if (auto *glyph = qgraphicsitem_cast<const QGraphicsPixmapItem *>(item))
+        glyphs += !glyph->pixmap().isNull();
+    }
+    CHECK(robots == fleetSizes[index - 1]);
+    CHECK(glyphs > robots);
+    QTest::mouseClick(home, Qt::LeftButton);
+    CHECK(preset->hasFocus());
+  }
 }

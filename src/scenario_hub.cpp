@@ -1,87 +1,79 @@
 #include "simra/scenario_hub.hpp"
 #include "simra/warehouse_view.hpp"
+#include "visual_system.hpp"
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <array>
 
 namespace simra {
 ScenarioHub::ScenarioHub(std::function<void(int)> openPreset, QWidget *parent)
     : QWidget(parent) {
   auto *page = new QVBoxLayout(this);
-  page->setContentsMargins(36, 30, 36, 30);
-  page->setSpacing(22);
-  auto *title = new QLabel("SIMRA");
-  title->setStyleSheet("font-size:42px;font-weight:800;color:#EFF6FF;");
-  page->addWidget(title);
-  auto *subtitle =
-      new QLabel("Simulador interactivo multihilo de robots de almacén");
-  subtitle->setStyleSheet("font-size:19px;color:#9CB1CC;");
-  page->addWidget(subtitle);
-  auto *instruction = new QLabel(
-      "Elige un escenario. Cada tarjeta enumera los conceptos de "
-      "programación concurrente y objetos que contiene.");
-  instruction->setStyleSheet("color:#A8B8CE;");
-  instruction->setWordWrap(true);
-  page->addWidget(instruction);
+  page->setContentsMargins(26, 22, 26, 22);
+  page->setSpacing(18);
+  auto *brand = new QHBoxLayout;
+  auto *mark = new QLabel;
+  mark->setPixmap(visual::symbol("brand", QColor(visual::primary), 26));
+  brand->addWidget(mark);
+  brand->addWidget(visual::label("SIMRA", "wordmark"));
+  brand->addStretch();
+  page->addLayout(brand);
+
+  auto *intro = new QVBoxLayout;
+  intro->setSpacing(3);
+  intro->addWidget(visual::label("Robots de almacén", "display"));
+  intro->addWidget(visual::label(
+      "Un simulador para observar concurrencia y programación orientada a objetos.", "muted"));
+  page->addLayout(intro);
+
   auto *content = new QHBoxLayout;
-  content->setSpacing(24);
-  auto *options = new QVBoxLayout;
-  options->setSpacing(12);
-  const std::array<QString, 4> names = {
-      "Hilos y pedidos concurrentes", "Herencia y polimorfismo",
-      "Mutex: pasillo compartido", "Sincronización: recarga compartida"};
-  const std::array<QString, 4> descriptions = {
-      "• <b>Hilos:</b> un hilo de ejecución por robot.<br>"
-      "• <b>Cola segura:</b> pedidos compartidos entre hilos.<br>"
-      "• <b>Encapsulación:</b> estado propio de cada robot.",
-      "• <b>Herencia:</b> LightRobot y HeavyRobot especializan Robot.<br>"
-      "• <b>Polimorfismo:</b> una interfaz común para la flota.<br>"
-      "• <b>Factory:</b> creación de robots y estaciones compatibles.",
-      "• <b>Mutex:</b> protege cada celda o recurso reservado.<br>"
-      "• <b>Exclusión mutua:</b> un solo robot por zona crítica.<br>"
-      "• <b>Coordinación:</b> espera y liberación de recursos.",
-      "• <b>Recurso compartido:</b> estación de recarga.<br>"
-      "• <b>Reserva exclusiva:</b> un robot usa el cargador a la vez.<br>"
-      "• <b>Sincronización:</b> espera hasta que el recurso se libere."};
-  for (int index = 0; index < int(names.size()); ++index) {
-    auto *card = new QFrame;
-    card->setStyleSheet("QFrame{background:#1E293B;border:1px solid "
-                        "#334155;border-radius:10px;}"
-                        "QLabel{border:0;background:transparent;}");
-    auto *cardLayout = new QVBoxLayout(card);
-    auto *button = new QPushButton(names[index]);
+  content->setSpacing(20);
+  auto *catalog = new QVBoxLayout;
+  catalog->setSpacing(8);
+  catalog->addWidget(visual::label("Escenarios", "section"));
+  for (int index = 0; index < int(visual::scenarios.size()); ++index) {
+    const auto &scenario = visual::scenarios[index];
+    auto *card = visual::panel();
+    auto *body = new QVBoxLayout(card);
+    body->setContentsMargins(9, 7, 9, 9);
+    body->setSpacing(4);
+    auto *button = new QPushButton(visual::icon(scenario.symbol), scenario.title);
     button->setObjectName(QString("preset%1").arg(index));
-    button->setStyleSheet("text-align:left;font-size:15px;font-weight:700;");
+    button->setProperty("variant", "scenario");
+    button->setIconSize(QSize(22, 22));
+    button->setCursor(Qt::PointingHandCursor);
+    button->setAccessibleDescription(scenario.observation);
     connect(button, &QPushButton::clicked, this,
             [openPreset, index] { openPreset(index); });
-    cardLayout->addWidget(button);
-    auto *text = new QLabel(descriptions[index]);
-    text->setObjectName(QString("scenarioConcept%1").arg(index));
-    text->setStyleSheet("color:#A8B8CE;");
-    text->setWordWrap(true);
-    cardLayout->addWidget(text);
-    options->addWidget(card);
+    body->addWidget(button);
+    auto *concepts = visual::label(scenario.concepts, "caption");
+    concepts->setObjectName(QString("scenarioConcept%1").arg(index));
+    concepts->setWordWrap(true);
+    concepts->setContentsMargins(5, 0, 5, 0);
+    body->addWidget(concepts);
+    catalog->addWidget(card);
   }
-  options->addStretch();
-  content->addLayout(options, 4);
+  catalog->addStretch();
+  content->addLayout(catalog, 4);
 
-  auto *map = new QVBoxLayout;
-  description_ = new QLabel;
-  description_->setStyleSheet("font-weight:700;color:#E2E8F0;");
+  auto *mapPanel = visual::panel();
+  auto *map = new QVBoxLayout(mapPanel);
+  map->setContentsMargins(14, 12, 14, 12);
+  map->addWidget(visual::label("Plano del almacén", "section"));
+  description_ = visual::label({}, "caption");
   map->addWidget(description_);
   preview_ = new WarehouseView;
+  preview_->setAccessibleName("Vista previa del plano del almacén");
+  preview_->setFocusPolicy(Qt::NoFocus);
   map->addWidget(preview_, 1);
-  auto *legend = new QLabel("E Entrega     R Recepción     C Recarga");
-  legend->setStyleSheet("color:#9CB1CC;");
-  map->addWidget(legend);
-  content->addLayout(map, 8);
+  map->addLayout(visual::mapLegend(false));
+  content->addWidget(mapPanel, 6);
   page->addLayout(content, 1);
 }
 void ScenarioHub::preview(const Scenario &scenario) {
-  description_->setText(QString("Vista previa · %1 × %2 · %3 robots")
+  description_->setText(QString("Vista previa del primer escenario  /  %1 × %2 celdas  /  %3 robots")
                             .arg(scenario.width)
                             .arg(scenario.height)
                             .arg(scenario.robots.size()));

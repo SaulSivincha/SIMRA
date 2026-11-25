@@ -13,6 +13,7 @@ class QGraphicsEllipseItem;
 class QGraphicsItemGroup;
 class QGraphicsLineItem;
 class QGraphicsPathItem;
+class QGraphicsPixmapItem;
 class QGraphicsRectItem;
 class QGraphicsScene;
 class QGraphicsTextItem;
@@ -24,7 +25,8 @@ class WarehouseView final : public QGraphicsView {
     QGraphicsEllipseItem *focus{};
     QGraphicsPathItem *body{};
     QGraphicsTextItem *label{};
-    QGraphicsRectItem *cargo{}, *battery{};
+    QGraphicsPixmapItem *cargo{};
+    QGraphicsRectItem *battery{};
     QPointF target;
     QGraphicsPathItem *route{};
     std::vector<Position> routeCells;
@@ -46,6 +48,7 @@ class WarehouseView final : public QGraphicsView {
   std::optional<Position> selectedCell_;
   std::map<std::string, RobotVisual> robotVisuals_;
   std::map<std::string, QGraphicsTextItem *> shelfBadges_;
+  std::map<std::string, QGraphicsPathItem *> stationMarkers_;
   std::map<std::string, Motion> motions_;
   QGraphicsItemGroup *milestoneModal_{};
   QGraphicsEllipseItem *milestoneFocus_{};
@@ -56,6 +59,7 @@ class WarehouseView final : public QGraphicsView {
   std::optional<Milestone> pendingMilestone_;
   std::optional<std::chrono::steady_clock::time_point> pausedAt_;
   bool mapReady_{};
+  bool reduceMotion_{};
   int width_{}, height_;
   static constexpr int Cell = 52;
   void fitMap();

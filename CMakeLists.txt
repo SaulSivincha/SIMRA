@@ -4,7 +4,7 @@ project(SIMRA VERSION 0.2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg)
 find_package(Threads REQUIRED)
 
 add_library(simra_core
@@ -29,8 +29,31 @@ add_library(simra_widgets
   src/robot_monitor.cpp
   src/scenario_hub.cpp
   src/statistics_panel.cpp
+  src/visual_system.cpp
 )
-target_link_libraries(simra_widgets PUBLIC simra_core Qt6::Widgets PRIVATE simra_json)
+qt_add_resources(simra_widgets simra_visual
+  PREFIX "/simra" BASE "assets"
+  FILES
+    assets/icons/brand.svg
+    assets/icons/threads.svg
+    assets/icons/types.svg
+    assets/icons/mutex.svg
+    assets/icons/charge.svg
+    assets/icons/receive.svg
+    assets/icons/deliver.svg
+    assets/icons/shelf.svg
+    assets/icons/robot.svg
+    assets/icons/heavy.svg
+    assets/icons/home.svg
+    assets/icons/play.svg
+    assets/icons/pause.svg
+    assets/icons/restart.svg
+    assets/icons/stats.svg
+    assets/icons/route.svg
+    assets/icons/cargo.svg
+    assets/icons/obstacle.svg
+)
+target_link_libraries(simra_widgets PUBLIC simra_core Qt6::Widgets PRIVATE simra_json Qt6::Svg)
 target_compile_definitions(simra_widgets PRIVATE SIMRA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_executable(simra src/main.cpp)

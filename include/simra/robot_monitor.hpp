@@ -15,6 +15,7 @@ class RobotMonitor final : public QWidget {
     QPushButton *title{};
     QLabel *status{}, *detail{}, *thread{};
     QProgressBar *battery{};
+    std::optional<RobotKind> iconKind;
   };
   QWidget *content_{};
   QVBoxLayout *layout_{};
@@ -27,6 +28,6 @@ public:
   void onSelected(std::function<void(std::string)> callback) {
     selected_ = std::move(callback);
   }
-  void render(const Snapshot &snapshot);
+  void render(const Snapshot &snapshot, const std::string &focusedRobot);
 };
 } // namespace simra

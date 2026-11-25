@@ -1,4 +1,5 @@
 #include "simra/statistics_panel.hpp"
+#include "visual_system.hpp"
 #include <algorithm>
 #include <QFrame>
 #include <QGridLayout>
@@ -8,24 +9,25 @@
 namespace simra {
 StatisticsPanel::StatisticsPanel(QWidget *parent) : QWidget(parent) {
   auto *outer = new QVBoxLayout(this);
-  auto *heading = new QLabel("ESTADO TÉCNICO DE LA SIMULACIÓN");
-  heading->setStyleSheet("color:#94A3B8;font-weight:700;letter-spacing:1px;");
-  outer->addWidget(heading);
+  outer->setContentsMargins(12, 12, 12, 12);
+  outer->addWidget(visual::label("Estado técnico", "section"));
+  auto *hint = visual::label("Hilos, pedidos en cola y recursos compartidos.", "caption");
+  hint->setWordWrap(true);
+  outer->addWidget(hint);
   auto *grid = new QGridLayout;
   QStringList labels = {"Hilos activos", "Hilos en espera",
                         "Buffer de trabajo", "Recursos exclusivos libres",
                         "Recursos reservados", "Conflictos de mutex",
                         "Ciclos de espera", "Robots bloqueados"};
   for (int i = 0; i < int(values_.size()); ++i) {
-    auto *tile = new QFrame;
-    tile->setStyleSheet(
-        "QFrame{background:#273449;border:1px solid #3B4B63;"
-        "border-radius:9px;} QLabel{border:0;background:transparent;}");
+    auto *tile = visual::panel();
     auto *box = new QVBoxLayout(tile);
-    auto *label = new QLabel(labels[i]);
-    label->setStyleSheet("color:#94A3B8;font-size:11px;");
-    values_[i] = new QLabel("0");
-    values_[i]->setStyleSheet("color:#F1F5F9;font-size:20px;font-weight:700;");
+    box->setContentsMargins(10, 8, 10, 8);
+    box->setSpacing(2);
+    auto *label = visual::label(labels[i], "caption");
+    label->setWordWrap(true);
+    values_[i] = visual::label("0", "metric");
+    values_[i]->setAccessibleName(labels[i]);
     box->addWidget(label);
     box->addWidget(values_[i]);
     grid->addWidget(tile, i / 2, i % 2);

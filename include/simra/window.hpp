@@ -18,6 +18,7 @@ class MainWindow final : public QMainWindow {
   RobotMonitor *monitor_{};
   StatisticsPanel *metrics_{};
   QLabel *status_{}, *scenarioName_{};
+  QLabel *scenarioObservation_{};
   QTimer *timer_{};
   QTabWidget *rightTabs_{};
   QStackedWidget *pages_{};
@@ -29,13 +30,13 @@ class MainWindow final : public QMainWindow {
   void render(const Snapshot &);
   void showMilestone(const Event &);
   void refresh();
-  void loadPreset();
+  bool loadPreset();
   void startSimulation();
   void stopSimulation();
 
 public:
   explicit MainWindow(QWidget *parent = nullptr);
-  void startDemo();
+  bool startDemo(int scenario = 0);
   void showStatistics();
 };
 } // namespace simra

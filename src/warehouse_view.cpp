@@ -1,7 +1,10 @@
 #include "simra/warehouse_view.hpp"
+#include "visual_system.hpp"
+#include <QCoreApplication>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsItemGroup>
 #include <QGraphicsPathItem>
+#include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
 #include <QGraphicsTextItem>
@@ -12,12 +15,24 @@
 #include <algorithm>
 
 namespace simra {
+namespace {
+void placeGlyph(QGraphicsPixmapItem &item, const char *name, const QColor &color,
+                qreal size, QPointF origin) {
+  constexpr int artworkResolution = 96;
+  item.setPixmap(visual::symbol(name, color, artworkResolution));
+  item.setScale(size / artworkResolution);
+  item.setPos(origin);
+  item.setTransformationMode(Qt::SmoothTransformation);
+}
+} // namespace
+
 WarehouseView::WarehouseView(QWidget *parent)
     : QGraphicsView(parent), scene_(new QGraphicsScene(this)),
       animationTimer_(new QTimer(this)), milestoneTimer_(new QTimer(this)) {
   setScene(scene_);
   setRenderHint(QPainter::Antialiasing);
-  setBackgroundBrush(QColor("#172235"));
+  setBackgroundBrush(QColor(visual::map));
+  reduceMotion_ = QCoreApplication::arguments().contains("--reduced-motion");
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setFrameShape(QFrame::NoFrame);
@@ -88,6 +103,7 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   motions_.clear();
   robotVisuals_.clear();
   shelfBadges_.clear();
+  stationMarkers_.clear();
   milestoneModal_ = nullptr;
   milestoneRobot_.clear();
   pendingMilestone_.reset();
@@ -96,65 +112,66 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   width_ = config.width;
   height_ = config.height;
   scene_->setSceneRect(0, 0, width_ * Cell, height_ * Cell);
-  for (int y = 0; y < height_; ++y)
-    for (int x = 0; x < width_; ++x) {
-      const auto px = x * Cell, py = y * Cell;
-      scene_->addRect(px, py, Cell, Cell, QPen(QColor("#CBD5E1"), 1),
-                      QBrush(QColor("#F8FAFC")));
-    }
+  QPainterPath grid;
+  for (int y = 0; y <= height_; ++y) {
+    grid.moveTo(0, y * Cell);
+    grid.lineTo(width_ * Cell, y * Cell);
+  }
+  for (int x = 0; x <= width_; ++x) {
+    grid.moveTo(x * Cell, 0);
+    grid.lineTo(x * Cell, height_ * Cell);
+  }
+  scene_->addPath(grid, QPen(QColor(visual::grid), 1));
   for (const auto obstacle : config.obstacles) {
-    const int x = obstacle.x * Cell, y = obstacle.y * Cell;
-    scene_->addRect(x + 4, y + 4, Cell - 8, Cell - 8,
-                    QPen(QColor("#334155"), 1), QBrush(QColor("#526174")));
-    for (int i = 0; i < 3; ++i)
-      scene_->addLine(x + 10 + i * 10, y + 10, x + 10, y + 10 + i * 10,
-                      QPen(QColor("#94A3B8"), 1));
+    const QPointF position(obstacle.x * Cell, obstacle.y * Cell);
+    scene_->addRect(QRectF(position + QPointF(5, 5), QSizeF(42, 42)),
+                    QPen(QColor(visual::grid)), QBrush(QColor("#253E40")));
+    auto *glyph = scene_->addPixmap({});
+    placeGlyph(*glyph, "obstacle", QColor("#A3B7B3"), 28, position + QPointF(12, 12));
+    glyph->setToolTip("Obstáculo");
   }
   for (const auto &shelf : config.shelves) {
-    const int x = shelf.position.x * Cell, y = shelf.position.y * Cell;
-    scene_->addRect(x + 5, y + 5, Cell - 10, Cell - 10,
-                    QPen(QColor("#6B4E32"), 2), QBrush(QColor("#B08A62")));
-    scene_->addLine(x + 11, y + 19, x + Cell - 11, y + 19,
-                    QPen(QColor("#6B4E32"), 2));
-    scene_->addLine(x + 11, y + 32, x + Cell - 11, y + 32,
-                    QPen(QColor("#6B4E32"), 2));
+    const QPointF position(shelf.position.x * Cell, shelf.position.y * Cell);
+    scene_->addRect(QRectF(position + QPointF(6, 6), QSizeF(40, 40)),
+                    QPen(QColor("#6A5A43")), QBrush(QColor("#423B30")));
+    auto *glyph = scene_->addPixmap({});
+    placeGlyph(*glyph, "shelf", QColor(visual::storage), 29, position + QPointF(9, 11));
+    glyph->setToolTip(QString("Estante %1").arg(QString::fromStdString(shelf.id)));
     auto *badge = scene_->addText({});
     shelfBadges_.emplace(shelf.id, badge);
-    badge->setDefaultTextColor(QColor("#FFF7ED"));
+    badge->setDefaultTextColor(QColor(visual::storage));
     badge->setScale(0.65);
-    badge->setPos(x + Cell - 22, y + 4);
+    badge->setPos(position + QPointF(35, 4));
   }
   for (const auto &station : config.stations) {
-    const int x = station.position.x * Cell, y = station.position.y * Cell;
-    QColor color;
-    QString glyph;
-    if (station.kind == Terrain::Delivery) {
-      color = QColor("#16A34A");
-      glyph = "E";
-    } else if (station.kind == Terrain::Reception) {
-      color = QColor("#0891B2");
-      glyph = "R";
-    } else {
-      color = QColor("#D97706");
-      glyph = "C";
-    }
-    QPainterPath path;
-    path.addRoundedRect(x + 4, y + 4, Cell - 8, Cell - 8, 6, 6);
-    auto *item =
-        scene_->addPath(path, QPen(color.darker(130), 2), QBrush(color));
-    item->setToolTip(QString::fromStdString(station.id));
-    auto *text = scene_->addText(glyph);
-    QFont font = text->font();
+    const QPointF position(station.position.x * Cell, station.position.y * Cell);
+    const bool outbound = station.kind == Terrain::Delivery;
+    const bool inbound = station.kind == Terrain::Reception;
+    const QColor color(outbound ? visual::delivery : inbound ? visual::receipt : visual::waiting);
+    const char *name = outbound ? "deliver" : inbound ? "receive" : "charge";
+    const auto id = QString::fromStdString(station.id);
+    QPainterPath tile;
+    tile.addRoundedRect(QRectF(position + QPointF(5, 5), QSizeF(42, 42)), 7, 7);
+    auto *marker = scene_->addPath(tile, QPen(color, 1), QBrush(color.darker(350)));
+    stationMarkers_.emplace(station.id, marker);
+    auto *glyph = scene_->addPixmap({});
+    placeGlyph(*glyph, name, color, 25, position + QPointF(13.5, 7));
+    const auto tooltip = QString("%1 %2").arg(outbound ? "Entrega" : inbound ? "Recepción" : "Recarga", id);
+    marker->setToolTip(tooltip);
+    glyph->setToolTip(tooltip);
+    auto *text = scene_->addSimpleText(id);
+    QFont font("monospace");
+    font.setPixelSize(9);
     font.setBold(true);
-    font.setPointSize(15);
     text->setFont(font);
-    text->setDefaultTextColor(Qt::white);
-    text->setPos(x + 16, y + 7);
+    text->setBrush(color);
+    text->setPos(position + QPointF((Cell - text->boundingRect().width()) / 2, 32));
+    text->setToolTip(tooltip);
   }
   if (selectedCell_) {
     const auto x = selectedCell_->x * Cell, y = selectedCell_->y * Cell;
     scene_->addRect(x + 1, y + 1, Cell - 2, Cell - 2,
-                    QPen(QColor("#2563EB"), 3), Qt::NoBrush);
+                    QPen(QColor(visual::light), 3), Qt::NoBrush);
   }
   mapReady_ = true;
   fitMap();
@@ -204,17 +221,22 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       auto *focus = new QGraphicsEllipseItem(1, 1, Cell - 2, Cell - 2, group);
       auto *body = new QGraphicsPathItem(group);
       QPainterPath bodyPath;
-      bodyPath.addRoundedRect(9, 9, Cell - 18, Cell - 19, 8, 8);
+      bodyPath.addRoundedRect(7, 5, 38, 40, 9, 9);
       body->setPath(bodyPath);
       auto *label = new QGraphicsTextItem(group);
-      auto font = label->font();
+      QFont font("monospace");
       font.setBold(true);
-      font.setPointSize(8);
+      font.setPixelSize(10);
       label->setFont(font);
-      label->setDefaultTextColor(Qt::white);
-      label->setPos(12, 13);
-      auto *cargo = new QGraphicsRectItem(Cell - 17, 3, 12, 12, group);
-      auto *battery = new QGraphicsRectItem(9, Cell - 8, 0, 4, group);
+      label->setDefaultTextColor(QColor(visual::ink));
+      label->setPlainText(QString::fromStdString(robot.id));
+      label->setPos((Cell - label->boundingRect().width()) / 2, 25);
+      auto *glyph = new QGraphicsPixmapItem(group);
+      placeGlyph(*glyph, robot.kind == RobotKind::Light ? "robot" : "heavy",
+                 QColor(visual::ink), 20, QPointF(16, 7));
+      auto *cargo = new QGraphicsPixmapItem(group);
+      placeGlyph(*cargo, "cargo", QColor(visual::waiting), 15, QPointF(37, 0));
+      auto *battery = new QGraphicsRectItem(12, Cell - 5, 0, 3, group);
       auto *route = scene_->addPath(QPainterPath{});
       route->setData(0, QString::fromStdString(robot.id));
       it->second = {group, focus, body, label, cargo, battery, target, route, {}};
@@ -224,17 +246,20 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     if (visual.target != target) {
       const auto current = displayedPosition(robot.id, now);
       visual.target = target;
-      motions_[robot.id] = {current, target, now,
-                            robot.kind == RobotKind::Light ? 760 : 1160};
-      if (!pausedAt_ && !animationTimer_->isActive())
-        animationTimer_->start();
+      if (reduceMotion_) {
+        visual.group->setPos(target);
+      } else {
+        motions_[robot.id] = {current, target, now,
+                              robot.kind == RobotKind::Light ? 760 : 1160};
+        if (!pausedAt_ && !animationTimer_->isActive())
+          animationTimer_->start();
+      }
     }
-    QColor color = robot.kind == RobotKind::Light ? QColor("#2563EB")
-                                                   : QColor("#9333EA");
+    QColor color(robot.kind == RobotKind::Light ? visual::light : visual::heavy);
     if (robot.status == RobotStatus::Waiting)
-      color = QColor("#D97706");
+      color = QColor(visual::waiting);
     if (robot.status == RobotStatus::Blocked)
-      color = QColor("#EF4444");
+      color = QColor(visual::blocked);
     visual.body->setPen(QPen(color.darker(140), 2));
     visual.body->setBrush(QBrush(color));
     visual.focus->setPen(QPen(color, 3));
@@ -246,23 +271,20 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     else
       visual.routeCells = route->second;
     auto routeColor = color;
-    routeColor.setAlpha(focused ? 255 : 175);
+    routeColor.setAlpha(focused ? 255 : 195);
     visual.route->setPen(QPen(routeColor, focused ? 4 : 3, Qt::DashLine,
                              Qt::RoundCap, Qt::RoundJoin));
     visual.route->setZValue(focused ? 5 : 4);
     visual.focus->setVisible(focused);
     updateRoute(visual);
-    visual.label->setPlainText(QString::fromStdString(robot.id));
-    visual.cargo->setPen(QPen(QColor("#92400E")));
-    visual.cargo->setBrush(QBrush(QColor("#FBBF24")));
     visual.cargo->setVisible(!robot.carrying.empty());
     const double battery = robot.maxBattery > 0
                                ? double(robot.battery) / robot.maxBattery
                                : 0.0;
-    visual.battery->setRect(9, Cell - 8, (Cell - 18) * battery, 4);
+    visual.battery->setRect(12, Cell - 5, 28 * battery, 3);
     visual.battery->setPen(Qt::NoPen);
     visual.battery->setBrush(
-        QBrush(battery < .25 ? QColor("#EF4444") : QColor("#22C55E")));
+        QBrush(QColor(battery < .25 ? visual::blocked : visual::receipt)));
     visual.group->setToolTip(
         QString::fromStdString(robot.id + " · " + robot.threadId));
   }
@@ -350,7 +372,7 @@ void WarehouseView::displayMilestone(const Milestone &milestone) {
   milestoneModal_->setZValue(30);
   scene_->addItem(milestoneModal_);
   auto *text = new QGraphicsTextItem(milestoneModal_);
-  text->setDefaultTextColor(QColor("#F8FAFC"));
+  text->setDefaultTextColor(QColor(visual::ink));
   text->setTextWidth(230);
   text->setHtml("<b>" + milestone.title.toHtmlEscaped() + "</b><br>" +
                 milestone.detail.toHtmlEscaped());
@@ -362,7 +384,7 @@ void WarehouseView::displayMilestone(const Milestone &milestone) {
                        8, 8);
   bubble->setPath(shape);
   bubble->setPen(QPen(milestone.accent, 2));
-  bubble->setBrush(QBrush(QColor("#0F172A")));
+  bubble->setBrush(QBrush(QColor(visual::surface)));
   bubble->setZValue(-1);
   milestoneFocus_ =
       new QGraphicsEllipseItem(1, 1, Cell - 2, Cell - 2, milestoneModal_);
@@ -381,6 +403,14 @@ void WarehouseView::render(const Snapshot &snapshot,
                                  height_ != snapshot.scenario.height;
   if (!mapReady_ || !runtimeSnapshot || dimensionsChanged)
     rebuildMap(snapshot);
+  for (const auto &[id, marker] : stationMarkers_) {
+    const bool reserved = std::any_of(
+        snapshot.stationReservations.begin(), snapshot.stationReservations.end(),
+        [&](const auto &reservation) { return reservation.first == id; });
+    auto pen = marker->pen();
+    pen.setWidth(reserved ? 3 : 1);
+    marker->setPen(pen);
+  }
   for (const auto &[id, badge] : shelfBadges_) {
     const auto atShelf = [&](const auto &cargo) { return cargo.locationId == id; };
     const auto count = runtimeSnapshot

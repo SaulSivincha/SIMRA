@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y qt6-base-dev
+      - run: sudo apt-get update && sudo apt-get install -y qt6-base-dev qt6-svg-dev
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build -j2
       - run: ctest --test-dir build --output-on-failure
