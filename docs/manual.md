@@ -18,3 +18,5 @@ La vista interpola los movimientos confirmados por el motor a 30 FPS. Los avisos
 La línea punteada de cada robot muestra el trayecto pendiente y sigue su posición animada. Durante la espera por una estación, señala el destino previsto mientras se obtiene la reserva. Selecciona un robot en el panel lateral para destacar su recorrido.
 
 Los símbolos del plano coinciden con los de la leyenda. El borde de una estación se hace más grueso durante su reserva. Usa **Tab** para recorrer los controles, **Espacio** para activar un botón y las flechas para moverte entre pestañas. Para reducir el movimiento visual, inicia la aplicación con `./build/simra --reduced-motion`.
+
+Al recoger, un cuadrado dorado viaja del estante o la recepción al robot. Al dejar la mercancía, viaja del robot al destino. Los pulsos menta acompañan la recarga y un anillo verde marca una estación liberada. El texto sobre el plano indica el último cambio de carga o recarga. Con movimiento reducido, estos efectos usan un contorno fijo.

@@ -2,11 +2,12 @@
 #include <sstream>
 namespace simra {
 void SimulationLogger::log(EventKind kind, std::string text,
-                           std::string robotId) {
+                           std::string robotId,
+                           std::optional<EventLocation> location) {
   std::ostringstream out;
   out << std::this_thread::get_id();
   Event event{kind, std::move(text), std::move(robotId), out.str(),
-              std::chrono::system_clock::now()};
+              std::chrono::system_clock::now(), location};
   {
     std::lock_guard lock(mutex_);
     events_.push_back(event);

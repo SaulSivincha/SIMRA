@@ -19,6 +19,7 @@ class MainWindow final : public QMainWindow {
   StatisticsPanel *metrics_{};
   QLabel *status_{}, *scenarioName_{};
   QLabel *scenarioObservation_{};
+  QLabel *actionStatus_{};
   QTimer *timer_{};
   QTabWidget *rightTabs_{};
   QStackedWidget *pages_{};

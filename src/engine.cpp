@@ -168,9 +168,6 @@ bool recharge(WarehouseState &state, const std::string &id) {
     auto robot = std::find_if(progress.robots.begin(), progress.robots.end(),
                               [&](const auto &r) { return r.id == id; });
     if (robot->battery == robot->maxBattery) {
-      SimulationLogger::instance().log(EventKind::ChargingCompleted,
-                                       "recarga completada: " + station->id,
-                                       id);
       return leaveStation(state, id, station->position);
     }
   }
@@ -195,7 +192,6 @@ bool executeOrder(WarehouseState &state, const std::string &id,
       return false;
   } while (!state.pickUp(id, assigned));
 
-  SimulationLogger::instance().log("mercancía recogida: " + cargo->id, id);
   if (order->kind == OrderKind::Delivery &&
       !acquireService(state, id, order->destinationId))
     return false;
@@ -203,7 +199,6 @@ bool executeOrder(WarehouseState &state, const std::string &id,
     if (!travel(state, id, plan->destination, RobotStatus::ToDelivery))
       return false;
   } while (!state.deliver(id, assigned));
-  SimulationLogger::instance().log("pedido completado: " + assigned, id);
   return order->kind == OrderKind::Restock ||
          leaveStation(state, id, plan->destination);
 }

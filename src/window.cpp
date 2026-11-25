@@ -92,6 +92,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   auto *mapLayout = new QVBoxLayout(mapPanel);
   mapLayout->setContentsMargins(12, 10, 12, 10);
   mapLayout->addWidget(visual::label("Plano del almacén", "section"));
+  actionStatus_ = visual::label({}, "muted");
+  actionStatus_->setWordWrap(true);
+  mapLayout->addWidget(actionStatus_);
   mapLayout->addWidget(view_, 1);
   mapLayout->addLayout(visual::mapLegend(true));
   split->addWidget(mapPanel);
@@ -114,7 +117,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   connect(timer_, &QTimer::timeout, this, [this] { refresh(); });
   timer_->start();
   loadPreset();
-  hub_->preview(scenario_);
   pages_->setCurrentWidget(hub_);
 }
 bool MainWindow::loadPreset() {
@@ -132,6 +134,7 @@ bool MainWindow::loadPreset() {
     scenarioName_->setText(presentation.title);
     scenarioObservation_->setText(presentation.observation);
     status_->setText("Escenario preparado");
+    actionStatus_->setText("Inicia la demostración para ver cómo se mueven los paquetes.");
     start_->setEnabled(true);
     start_->setText("Iniciar demostración");
     start_->setIcon(visual::icon("play", Qt::white));
@@ -159,6 +162,7 @@ void MainWindow::startSimulation() {
     pause_->setEnabled(true);
     pause_->setFocus();
     status_->setText("Simulación en ejecución");
+    actionStatus_->setText("Sigue las rutas punteadas para ver el próximo destino.");
   } catch (const std::exception &e) {
     engine_.reset();
     QMessageBox::warning(this, "No se pudo iniciar", e.what());
@@ -222,6 +226,7 @@ void MainWindow::render(const Snapshot &s) {
   }
 }
 void MainWindow::showMilestone(const Event &event) {
+  view_->showAction(event);
   const auto actor = event.robotId.empty()
                          ? QString("El sistema")
                          : QString::fromStdString(event.robotId);
@@ -256,10 +261,21 @@ void MainWindow::showMilestone(const Event &event) {
     show("Ciclo de espera recuperado", QColor(visual::waiting), 3);
     break;
   case EventKind::ChargingStarted:
-    show("Uso exclusivo del cargador", QColor(visual::receipt), 3);
+    actionStatus_->setText(actor + " está usando un cargador en exclusiva.");
+    show("Uso exclusivo del cargador", QColor(visual::energy), 3);
     break;
   case EventKind::ChargingCompleted:
-    show("Recarga completada", QColor(visual::delivery), 2);
+    actionStatus_->setText(actor + " completó la recarga en " +
+                           QString::fromStdString(event.text) + ".");
+    show("Recarga completada", QColor(visual::energy), 2);
+    break;
+  case EventKind::CargoPickedUp:
+    actionStatus_->setText(actor + " recogió el paquete " + QString::fromStdString(event.text) + ".");
+    break;
+  case EventKind::CargoPlaced:
+    actionStatus_->setText(actor + " dejó el paquete " + QString::fromStdString(event.text) + " en su destino.");
+    break;
+  case EventKind::ChargePulse:
     break;
   case EventKind::Generic:
     return;

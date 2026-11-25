@@ -344,7 +344,7 @@ bool WarehouseState::move(const std::string &robotId, Position next) {
         r.view.status = RobotStatus::Idle;
       SimulationLogger::instance().log(EventKind::ResourceReleased,
                                        "liberó el recurso " + released,
-                                       robotId);
+                                       robotId, EventLocation{old, old});
     }
   }
   changedLocked();
@@ -370,6 +370,8 @@ bool WarehouseState::pickUp(const std::string &robotId,
   r.view.carrying = c.view.id;
   o.status = OrderStatus::InProgress;
   r.view.status = RobotStatus::ToDelivery;
+  SimulationLogger::instance().log(EventKind::CargoPickedUp, c.view.id, robotId,
+                                   EventLocation{target, r.view.position});
   changedLocked();
   return true;
 }
@@ -402,6 +404,8 @@ bool WarehouseState::deliver(const std::string &robotId,
                                                             o.created)
           .count();
   ++metrics_.completed;
+  SimulationLogger::instance().log(EventKind::CargoPlaced, c.view.id, robotId,
+                                   EventLocation{r.view.position, target});
   changedLocked();
   return true;
 }
@@ -499,7 +503,12 @@ bool WarehouseState::charge(const std::string &robotId, int increment) {
   const int missing = robot.type->maxBattery() - robot.view.battery;
   if (missing > 0) {
     robot.view.battery += std::min(increment, missing);
-    metrics_.recharges += increment >= missing;
+    const bool full = increment >= missing;
+    metrics_.recharges += full;
+    SimulationLogger::instance().log(
+        full ? EventKind::ChargingCompleted : EventKind::ChargePulse,
+        station->id, robotId,
+        EventLocation{station->position, station->position});
   }
   robot.view.status = RobotStatus::Charging;
   robot.view.waitingFor.clear();

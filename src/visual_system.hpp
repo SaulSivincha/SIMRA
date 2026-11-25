@@ -12,20 +12,22 @@ class QFrame;
 class QHBoxLayout;
 
 namespace simra::visual {
-inline constexpr auto canvas = "#F3F5EF";
+inline constexpr auto canvas = "#F4F5F8";
 inline constexpr auto surface = "#FFFFFF";
-inline constexpr auto ink = "#172D2C";
-inline constexpr auto muted = "#49615E";
-inline constexpr auto border = "#CFD9D1";
-inline constexpr auto primary = "#145549";
-inline constexpr auto map = "#172B2D";
-inline constexpr auto grid = "#2C4748";
-inline constexpr auto light = "#8BCBF4";
-inline constexpr auto heavy = "#CFB8F4";
-inline constexpr auto waiting = "#F0C36D";
-inline constexpr auto blocked = "#FFA398";
-inline constexpr auto receipt = "#8FE1D2";
-inline constexpr auto delivery = "#AFDB9C";
+inline constexpr auto ink = "#182638";
+inline constexpr auto muted = "#46566D";
+inline constexpr auto border = "#D5DEEC";
+inline constexpr auto primary = "#3153A4";
+inline constexpr auto map = "#172334";
+inline constexpr auto grid = "#304259";
+inline constexpr auto light = "#8DCCFF";
+inline constexpr auto heavy = "#D5B9FF";
+inline constexpr auto cargo = "#FFD275";
+inline constexpr auto energy = "#78E4CD";
+inline constexpr auto waiting = "#FFB079";
+inline constexpr auto blocked = "#FF9DAA";
+inline constexpr auto receipt = "#9CDCEB";
+inline constexpr auto delivery = "#ADDDA3";
 inline constexpr auto storage = "#DCC39D";
 
 struct ScenarioPresentation {

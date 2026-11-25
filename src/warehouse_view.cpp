@@ -82,6 +82,7 @@ void WarehouseView::resetAnimation() {
   pendingMilestone_.reset();
   pausedAt_.reset();
   motions_.clear();
+  clearEffects();
   mapReady_ = false;
 }
 void WarehouseView::pauseAnimation(bool paused) {
@@ -92,8 +93,10 @@ void WarehouseView::pauseAnimation(bool paused) {
   } else if (!paused && pausedAt_) {
     for (auto &[id, motion] : motions_)
       motion.started += now - *pausedAt_;
+    for (auto &effect : effects_)
+      effect.started += now - *pausedAt_;
     pausedAt_.reset();
-    if (!motions_.empty())
+    if (!motions_.empty() || !effects_.empty())
       animationTimer_->start();
   }
 }
@@ -101,6 +104,7 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   animationTimer_->stop();
   milestoneTimer_->stop();
   motions_.clear();
+  clearEffects();
   robotVisuals_.clear();
   shelfBadges_.clear();
   stationMarkers_.clear();
@@ -125,9 +129,9 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   for (const auto obstacle : config.obstacles) {
     const QPointF position(obstacle.x * Cell, obstacle.y * Cell);
     scene_->addRect(QRectF(position + QPointF(5, 5), QSizeF(42, 42)),
-                    QPen(QColor(visual::grid)), QBrush(QColor("#253E40")));
+                    QPen(QColor(visual::grid)), QBrush(QColor("#25364D")));
     auto *glyph = scene_->addPixmap({});
-    placeGlyph(*glyph, "obstacle", QColor("#A3B7B3"), 28, position + QPointF(12, 12));
+    placeGlyph(*glyph, "obstacle", QColor("#BECADC"), 28, position + QPointF(12, 12));
     glyph->setToolTip("Obstáculo");
   }
   for (const auto &shelf : config.shelves) {
@@ -147,7 +151,7 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
     const QPointF position(station.position.x * Cell, station.position.y * Cell);
     const bool outbound = station.kind == Terrain::Delivery;
     const bool inbound = station.kind == Terrain::Reception;
-    const QColor color(outbound ? visual::delivery : inbound ? visual::receipt : visual::waiting);
+    const QColor color(outbound ? visual::delivery : inbound ? visual::receipt : visual::energy);
     const char *name = outbound ? "deliver" : inbound ? "receive" : "charge";
     const auto id = QString::fromStdString(station.id);
     QPainterPath tile;
@@ -235,7 +239,7 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       placeGlyph(*glyph, robot.kind == RobotKind::Light ? "robot" : "heavy",
                  QColor(visual::ink), 20, QPointF(16, 7));
       auto *cargo = new QGraphicsPixmapItem(group);
-      placeGlyph(*cargo, "cargo", QColor(visual::waiting), 15, QPointF(37, 0));
+      placeGlyph(*cargo, "cargo", QColor(visual::cargo), 15, QPointF(37, 0));
       auto *battery = new QGraphicsRectItem(12, Cell - 5, 0, 3, group);
       auto *route = scene_->addPath(QPainterPath{});
       route->setData(0, QString::fromStdString(robot.id));
@@ -260,6 +264,8 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       color = QColor(visual::waiting);
     if (robot.status == RobotStatus::Blocked)
       color = QColor(visual::blocked);
+    if (robot.status == RobotStatus::Charging)
+      color = QColor(visual::energy);
     visual.body->setPen(QPen(color.darker(140), 2));
     visual.body->setBrush(QBrush(color));
     visual.focus->setPen(QPen(color, 3));
@@ -284,7 +290,7 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
     visual.battery->setRect(12, Cell - 5, 28 * battery, 3);
     visual.battery->setPen(Qt::NoPen);
     visual.battery->setBrush(
-        QBrush(QColor(battery < .25 ? visual::blocked : visual::receipt)));
+        QBrush(QColor(battery < .25 ? visual::blocked : visual::energy)));
     visual.group->setToolTip(
         QString::fromStdString(robot.id + " · " + robot.threadId));
   }
@@ -318,8 +324,87 @@ void WarehouseView::advanceAnimations() {
       ++it;
   }
   positionMilestone();
-  if (motions_.empty())
+  advanceEffects(now);
+  if (motions_.empty() && effects_.empty())
     animationTimer_->stop();
+}
+void WarehouseView::clearEffects() {
+  for (const auto &effect : effects_) {
+    delete effect.token;
+    delete effect.pulse;
+  }
+  effects_.clear();
+}
+void WarehouseView::showAction(const Event &event) {
+  if (!event.location || !mapReady_)
+    return;
+  const bool transfer = event.kind == EventKind::CargoPickedUp ||
+                        event.kind == EventKind::CargoPlaced;
+  const bool chargeComplete = event.kind == EventKind::ChargingCompleted;
+  if (!transfer && !chargeComplete && event.kind != EventKind::ChargePulse &&
+      event.kind != EventKind::ResourceReleased)
+    return;
+
+  const auto center = [](Position p) {
+    return QPointF(p.x * Cell + Cell / 2, p.y * Cell + Cell / 2);
+  };
+  auto from = center(event.location->from);
+  auto to = center(event.location->to);
+  // At stations, the robot and cargo occupy the same cell. Offset the
+  // package endpoint to the edge of the tile so direction stays visible.
+  if (transfer && from == to) {
+    const auto offset = QPointF(event.location->from.x == width_ - 1 ? -22 : 22, -15);
+    if (event.kind == EventKind::CargoPickedUp)
+      from += offset;
+    else
+      to += offset;
+  }
+  const QColor color(transfer ? visual::cargo
+                    : event.kind == EventKind::ResourceReleased ? visual::delivery
+                                                               : visual::energy);
+  auto *pulse = scene_->addEllipse(QRectF{}, QPen(color, 2.5), Qt::NoBrush);
+  pulse->setZValue(18);
+  pulse->setData(0, "actionPulse");
+  QGraphicsPathItem *token = nullptr;
+  if (transfer && !reduceMotion_) {
+    QPainterPath square;
+    square.addRect(-4, -4, 8, 8);
+    token = scene_->addPath(square, QPen(QColor(visual::ink), 1), QBrush(color));
+    token->setZValue(22);
+    token->setData(0, "cargoTransfer");
+  }
+  const auto now = pausedAt_.value_or(std::chrono::steady_clock::now());
+  effects_.push_back({token, pulse, from, to, now,
+                      chargeComplete ? 1150 : transfer ? 1050 : 560});
+  advanceEffects(now);
+  if (!pausedAt_ && !animationTimer_->isActive())
+    animationTimer_->start();
+}
+void WarehouseView::advanceEffects(std::chrono::steady_clock::time_point now) {
+  for (auto it = effects_.begin(); it != effects_.end();) {
+    const auto &effect = *it;
+    const auto elapsed = std::chrono::duration<double, std::milli>(now - effect.started).count();
+    const auto t = elapsed / effect.durationMs;
+    if (t >= 1.0) {
+      delete effect.token;
+      delete effect.pulse;
+      it = effects_.erase(it);
+      continue;
+    }
+    const auto travel = std::clamp(t / .68, 0.0, 1.0);
+    if (effect.token) {
+      const auto eased = travel * travel * (3 - 2 * travel);
+      effect.token->setPos(effect.from + (effect.to - effect.from) * eased);
+      effect.token->setVisible(travel < 1.0);
+    }
+    const auto pulseTime = effect.token ? std::max(0.0, (t - .55) / .45) : t;
+    const auto radius = reduceMotion_ ? 19.0 : 9.0 + pulseTime * 19.0;
+    effect.pulse->setVisible(!effect.token || pulseTime > 0);
+    effect.pulse->setRect(QRectF(effect.to - QPointF(radius, radius),
+                                 QSizeF(radius * 2, radius * 2)));
+    effect.pulse->setOpacity(reduceMotion_ ? 1.0 : 1.0 - pulseTime);
+    ++it;
+  }
 }
 void WarehouseView::positionMilestone() {
   if (!milestoneModal_)

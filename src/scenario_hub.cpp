@@ -1,7 +1,7 @@
 #include "simra/scenario_hub.hpp"
-#include "simra/warehouse_view.hpp"
 #include "visual_system.hpp"
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -20,63 +20,74 @@ ScenarioHub::ScenarioHub(std::function<void(int)> openPreset, QWidget *parent)
   brand->addWidget(visual::label("SIMRA", "wordmark"));
   brand->addStretch();
   page->addLayout(brand);
+  page->addStretch(1);
 
+  auto *hero = new QHBoxLayout;
+  hero->setSpacing(24);
   auto *intro = new QVBoxLayout;
-  intro->setSpacing(3);
+  intro->setAlignment(Qt::AlignVCenter);
+  intro->setSpacing(7);
   intro->addWidget(visual::label("Robots de almacén", "display"));
-  intro->addWidget(visual::label(
-      "Un simulador para observar concurrencia y programación orientada a objetos.", "muted"));
-  page->addLayout(intro);
+  auto *summary = visual::label(
+      "Sigue un paquete desde su recogida hasta la entrega y observa cómo los robots comparten el almacén.",
+      "muted");
+  summary->setMaximumWidth(490);
+  summary->setWordWrap(true);
+  intro->addWidget(summary);
+  hero->addLayout(intro, 5);
 
-  auto *content = new QHBoxLayout;
-  content->setSpacing(20);
-  auto *catalog = new QVBoxLayout;
-  catalog->setSpacing(8);
-  catalog->addWidget(visual::label("Escenarios", "section"));
+  auto *guide = visual::panel();
+  auto *guideBody = new QVBoxLayout(guide);
+  guideBody->setContentsMargins(18, 14, 18, 14);
+  guideBody->addWidget(visual::label("Cómo leer el plano", "section"));
+  const auto addHint = [&](const char *symbol, const char *color, const char *text) {
+    auto *row = new QHBoxLayout;
+    auto *glyph = new QLabel;
+    glyph->setPixmap(visual::symbol(symbol, QColor(color).darker(215), 20));
+    auto *message = visual::label(text, "muted");
+    message->setWordWrap(true);
+    row->addWidget(glyph);
+    row->addWidget(message, 1);
+    guideBody->addLayout(row);
+  };
+  addHint("route", visual::light, "Línea punteada: próximo recorrido del robot.");
+  addHint("cargo", visual::cargo, "Cuadrado dorado: un paquete entra o sale del robot.");
+  addHint("charge", visual::energy, "Pulso verde menta: el cargador transfiere energía.");
+  hero->addWidget(guide, 4);
+  page->addLayout(hero);
+  page->addWidget(visual::label("Elige un escenario", "title"));
+
+  auto *catalog = new QGridLayout;
+  catalog->setSpacing(13);
+  catalog->setColumnStretch(0, 1);
+  catalog->setColumnStretch(1, 1);
   for (int index = 0; index < int(visual::scenarios.size()); ++index) {
     const auto &scenario = visual::scenarios[index];
     auto *card = visual::panel();
     auto *body = new QVBoxLayout(card);
-    body->setContentsMargins(9, 7, 9, 9);
-    body->setSpacing(4);
+    body->setContentsMargins(16, 13, 16, 17);
+    body->setSpacing(6);
     auto *button = new QPushButton(visual::icon(scenario.symbol), scenario.title);
     button->setObjectName(QString("preset%1").arg(index));
     button->setProperty("variant", "scenario");
-    button->setIconSize(QSize(22, 22));
+    button->setIconSize(QSize(24, 24));
     button->setCursor(Qt::PointingHandCursor);
     button->setAccessibleDescription(scenario.observation);
     connect(button, &QPushButton::clicked, this,
             [openPreset, index] { openPreset(index); });
     body->addWidget(button);
+    auto *observation = visual::label(scenario.observation, "muted");
+    observation->setWordWrap(true);
+    observation->setContentsMargins(9, 0, 9, 0);
+    body->addWidget(observation);
     auto *concepts = visual::label(scenario.concepts, "caption");
     concepts->setObjectName(QString("scenarioConcept%1").arg(index));
     concepts->setWordWrap(true);
-    concepts->setContentsMargins(5, 0, 5, 0);
+    concepts->setContentsMargins(9, 0, 9, 0);
     body->addWidget(concepts);
-    catalog->addWidget(card);
+    catalog->addWidget(card, index / 2, index % 2);
   }
-  catalog->addStretch();
-  content->addLayout(catalog, 4);
-
-  auto *mapPanel = visual::panel();
-  auto *map = new QVBoxLayout(mapPanel);
-  map->setContentsMargins(14, 12, 14, 12);
-  map->addWidget(visual::label("Plano del almacén", "section"));
-  description_ = visual::label({}, "caption");
-  map->addWidget(description_);
-  preview_ = new WarehouseView;
-  preview_->setAccessibleName("Vista previa del plano del almacén");
-  preview_->setFocusPolicy(Qt::NoFocus);
-  map->addWidget(preview_, 1);
-  map->addLayout(visual::mapLegend(false));
-  content->addWidget(mapPanel, 6);
-  page->addLayout(content, 1);
-}
-void ScenarioHub::preview(const Scenario &scenario) {
-  description_->setText(QString("Vista previa del primer escenario  /  %1 × %2 celdas  /  %3 robots")
-                            .arg(scenario.width)
-                            .arg(scenario.height)
-                            .arg(scenario.robots.size()));
-  preview_->render(Snapshot{scenario});
+  page->addLayout(catalog);
+  page->addStretch(2);
 }
 } // namespace simra

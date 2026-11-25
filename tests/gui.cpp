@@ -95,6 +95,12 @@ int main(int argc, char **argv) {
   CHECK(movingRobot->pos() == pausedPosition);
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Pausar");
+  CHECK(QTest::qWaitFor([&] {
+    for (const auto *item : map->scene()->items())
+      if (item->data(0).toString() == "cargoTransfer" && item->isVisible())
+        return true;
+    return false;
+  }, 10000));
   CHECK(QTest::qWaitFor(
       [&] { return start->isEnabled() && start->text() == "Reiniciar demostración"; },
       55000));

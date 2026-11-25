@@ -126,6 +126,16 @@ int main() {
   energy.stop();
   CHECK(sawRouteToCharger);
   CHECK(energy.state().snapshot().metrics.recharges >= 2);
+  const auto events = SimulationLogger::instance().events();
+  const auto hasLocatedEvent = [&](EventKind kind) {
+    return std::any_of(events.begin(), events.end(), [kind](const auto &event) {
+      return event.kind == kind && event.location.has_value();
+    });
+  };
+  CHECK(hasLocatedEvent(EventKind::CargoPickedUp));
+  CHECK(hasLocatedEvent(EventKind::CargoPlaced));
+  CHECK(hasLocatedEvent(EventKind::ChargePulse));
+  CHECK(hasLocatedEvent(EventKind::ChargingCompleted));
   for (const auto &[name, orderCount] :
        {std::pair{"basic", 4}, {"mixed", 5}, {"congestion", 7}, {"charging", 4}}) {
     SimulationEngine demo(loadScenario(std::string(SIMRA_SOURCE_DIR) +

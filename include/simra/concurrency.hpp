@@ -1,4 +1,5 @@
 #pragma once
+#include "simra/domain.hpp"
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -65,12 +66,19 @@ enum class EventKind {
   WaitCycleDetected,
   WaitCycleRecovered,
   ChargingStarted,
-  ChargingCompleted
+  ChargingCompleted,
+  ChargePulse,
+  CargoPickedUp,
+  CargoPlaced
+};
+struct EventLocation {
+  Position from, to;
 };
 struct Event {
   EventKind kind{EventKind::Generic};
   std::string text, robotId, threadId;
   std::chrono::system_clock::time_point when;
+  std::optional<EventLocation> location;
 };
 class SimulationLogger {
   mutable std::mutex mutex_;
@@ -88,7 +96,8 @@ public:
   void log(std::string text, std::string robotId = {}) {
     log(EventKind::Generic, std::move(text), std::move(robotId));
   }
-  void log(EventKind kind, std::string text, std::string robotId = {});
+  void log(EventKind kind, std::string text, std::string robotId = {},
+           std::optional<EventLocation> location = {});
   std::vector<Event> events() const;
   std::optional<Event> tryNextEvent() { return pending_.tryPop(); }
 };

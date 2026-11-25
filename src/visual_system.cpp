@@ -33,28 +33,28 @@ void applyTheme(QWidget &root) {
     QLabel[role="identifier"] { color: %5; font-family: monospace; font-size: 12px; }
     QPushButton { background: %3; border: 1px solid %4; border-radius: 8px;
                   min-height: 24px; padding: 8px 13px; font-weight: 600; }
-    QPushButton:hover { background: #EAF2EB; border-color: #74998C; }
-    QPushButton:focus { border: 2px solid #217466; padding: 7px 12px; }
+    QPushButton:hover { background: #E8EEFC; border-color: #7D94D0; }
+    QPushButton:focus { border: 2px solid %6; padding: 7px 12px; }
     QPushButton[variant="primary"] { background: %6; color: white; border-color: %6; }
-    QPushButton[variant="primary"]:hover { background: #1C695A; }
-    QPushButton[variant="primary"]:focus { border-color: #84C9AC; }
+    QPushButton[variant="primary"]:hover { background: #26458D; }
+    QPushButton[variant="primary"]:focus { border-color: #AFC3FC; }
     QPushButton:disabled, QPushButton[variant="primary"]:disabled {
-      background: #E6ECE7; color: %5; border-color: %4;
+      background: #E8EDF5; color: %5; border-color: %4;
     }
     QPushButton[variant="scenario"], QPushButton[variant="robot"] { text-align:left; }
     QPushButton[variant="scenario"] { font-size: 16px; border-color: transparent; }
-    QPushButton[variant="scenario"]:hover { border-color: #74998C; }
-    QPushButton[variant="scenario"]:focus { border-color: #217466; }
-    QPushButton[variant="robot"]:checked { background: #E2F0E7; border-color: #4C8875; }
+    QPushButton[variant="scenario"]:hover { border-color: #7D94D0; }
+    QPushButton[variant="scenario"]:focus { border-color: %6; }
+    QPushButton[variant="robot"]:checked { background: #E8EEFC; border-color: #7D94D0; }
     QTabWidget::pane { border: 1px solid %4; background: %3; border-radius: 8px; }
-    QTabBar::tab { background: #E6ECE7; color: %5; margin-right: 4px;
+    QTabBar::tab { background: #E8EDF5; color: %5; margin-right: 4px;
                   padding: 9px 13px; border: 1px solid %4;
                   border-top-left-radius: 7px; border-top-right-radius: 7px; }
     QTabBar::tab:selected { background: %3; color: %1; font-weight: 700; }
-    QTabBar::tab:focus { border-color: #217466; }
+    QTabBar::tab:focus { border-color: %6; }
     QSplitter::handle { background: %2; }
     QScrollArea { border: 0; background: %3; }
-    QProgressBar { border: 0; border-radius: 3px; background: #DDE8DF; }
+    QProgressBar { border: 0; border-radius: 3px; background: #D5DEEC; }
     QProgressBar::chunk { background: %6; border-radius: 3px; }
   )QSS").arg(ink, canvas, surface, border, muted, primary));
 }
@@ -104,20 +104,20 @@ QIcon icon(const char *name, const QColor &color) {
 QHBoxLayout *mapLegend(bool showRoutes) {
   auto *layout = new QHBoxLayout;
   layout->setSpacing(7);
-  const auto item = [&](const char *name, const char *text) {
+  const auto item = [&](const char *name, const char *text, const char *color) {
     auto *glyph = new QLabel;
-    glyph->setPixmap(symbol(name, QColor(primary), 17));
+    glyph->setPixmap(symbol(name, QColor(color).darker(210), 17));
     layout->addWidget(glyph);
     layout->addWidget(label(text, "caption"));
     layout->addSpacing(6);
   };
-  item("shelf", "Estante");
-  item("receive", "Recepción");
-  item("deliver", "Entrega");
-  item("charge", "Recarga");
+  item("shelf", "Estante", storage);
+  item("receive", "Recepción", receipt);
+  item("deliver", "Entrega", delivery);
+  item("charge", "Recarga", energy);
   if (showRoutes) {
-    item("route", "Ruta");
-    item("cargo", "Carga");
+    item("route", "Ruta", light);
+    item("cargo", "Carga", cargo);
   }
   layout->addStretch();
   return layout;

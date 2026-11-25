@@ -42,6 +42,13 @@ class WarehouseView final : public QGraphicsView {
     std::string robotId;
     int priority;
   };
+  struct ActionEffect {
+    QGraphicsPathItem *token;
+    QGraphicsEllipseItem *pulse;
+    QPointF from, to;
+    std::chrono::steady_clock::time_point started;
+    int durationMs;
+  };
   QGraphicsScene *scene_;
   QTimer *animationTimer_{};
   std::function<void(Position, bool)> editHandler_;
@@ -50,6 +57,7 @@ class WarehouseView final : public QGraphicsView {
   std::map<std::string, QGraphicsTextItem *> shelfBadges_;
   std::map<std::string, QGraphicsPathItem *> stationMarkers_;
   std::map<std::string, Motion> motions_;
+  std::vector<ActionEffect> effects_;
   QGraphicsItemGroup *milestoneModal_{};
   QGraphicsEllipseItem *milestoneFocus_{};
   QGraphicsLineItem *milestonePointer_{};
@@ -69,6 +77,8 @@ class WarehouseView final : public QGraphicsView {
   QPointF displayedPosition(const std::string &id,
                             std::chrono::steady_clock::time_point now) const;
   void advanceAnimations();
+  void advanceEffects(std::chrono::steady_clock::time_point now);
+  void clearEffects();
   void positionMilestone();
   void displayMilestone(const Milestone &milestone);
 
@@ -86,6 +96,7 @@ public:
   }
   void resetAnimation();
   void pauseAnimation(bool paused);
+  void showAction(const Event &event);
   void showMilestone(const QString &title, const QString &detail,
                      const QColor &accent, const std::string &robotId,
                      int priority = 1);
