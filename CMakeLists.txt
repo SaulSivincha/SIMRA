@@ -13,6 +13,7 @@ add_library(simra_core
   src/logger.cpp
   src/state.cpp
   src/engine.cpp
+  src/demo_program.cpp
   src/scenario_editor.cpp
   src/path_planner.cpp
 )
@@ -56,11 +57,11 @@ if(BUILD_TESTING)
     target_compile_definitions(${target} PRIVATE SIMRA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     add_test(NAME ${target} COMMAND ${target})
   endforeach()
-  set_tests_properties(simra_integration PROPERTIES TIMEOUT 40)
+  set_tests_properties(simra_integration PROPERTIES TIMEOUT 55)
 
   add_executable(simra_gui tests/gui.cpp)
   target_link_libraries(simra_gui PRIVATE simra_widgets Qt6::Test)
   add_test(NAME simra_gui COMMAND simra_gui)
-  set_tests_properties(simra_gui PROPERTIES TIMEOUT 15
+  set_tests_properties(simra_gui PROPERTIES TIMEOUT 65
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
 endif()

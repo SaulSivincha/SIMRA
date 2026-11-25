@@ -1,5 +1,6 @@
 #include "check.hpp"
 #include "simra/core.hpp"
+#include "simra/demo_program.hpp"
 #include <barrier>
 #include <chrono>
 #include <iostream>
@@ -113,6 +114,37 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   energy.stop();
   CHECK(energy.state().snapshot().metrics.recharges >= 2);
+  for (const auto &[name, orderCount] :
+       {std::pair{"basic", 4}, {"mixed", 5}, {"congestion", 7}, {"charging", 4}}) {
+    SimulationEngine demo(loadScenario(std::string(SIMRA_SOURCE_DIR) +
+                                       "/scenarios/" + name + ".json"));
+    loadDemoOrders(demo.state(), name);
+    CHECK(demo.state().snapshot().orders.size() == size_t(orderCount));
+    demo.state().setSpeedPercent(400);
+    demo.start(false);
+    const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+    auto current = demo.state().snapshot();
+    while (std::chrono::steady_clock::now() < limit &&
+           (current.metrics.completed != orderCount ||
+            !current.stationReservations.empty())) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      current = demo.state().snapshot();
+    }
+    std::cout << name << ": " << current.metrics.completed << "/" << orderCount
+              << " pedidos, " << current.metrics.recharges << " recargas\n";
+    if (current.metrics.completed != orderCount) {
+      for (const auto &order : current.orders)
+        std::cerr << order.id << ' ' << order.cargoId << ' '
+                  << int(order.status) << ' ' << order.robotId << '\n';
+      for (const auto &robot : current.robots)
+        std::cerr << robot.id << ' ' << robot.position << ' ' << int(robot.status)
+                  << ' ' << robot.battery << ' ' << robot.waitingFor << '\n';
+    }
+    CHECK(current.metrics.completed == orderCount);
+    CHECK(current.stationReservations.empty());
+    if (std::string_view{name} == "charging")
+      CHECK(current.metrics.recharges >= 3);
+  }
   std::cout << "two concurrent orders completed; distance="
             << result.metrics.distance
             << " conflicts=" << result.metrics.conflicts << "\n";

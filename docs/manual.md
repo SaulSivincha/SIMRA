@@ -4,10 +4,13 @@
 
 Compila con los comandos del README y abre `./build/simra`. En Inicio elige uno de los cuatro escenarios: **Hilos y pedidos concurrentes**, **Herencia y polimorfismo**, **Mutex: pasillo compartido** o **Sincronización: recarga compartida**. Cada tarjeta lista los conceptos que se estudian antes de abrir el plano.
 
-El escenario de mutex inicia trabajo para toda su flota, de modo que las reservas y esperas por recursos compartidos sean observables durante la ejecución.
+- **Hilos y pedidos concurrentes** combina reposición y entregas con prioridades. Los pedidos pendientes se reflejan en el buffer mientras los robots atienden los asignados.
+- **Herencia y polimorfismo** combina cargas de 5 y 25 kg. El aviso de asignación muestra el peso y la capacidad del robot seleccionado.
+- **Mutex: pasillo compartido** incorpora seis entregas a una misma estación y una reposición. Los avisos señalan la espera, la reserva y la liberación del recurso. Los ciclos dependen de la interacción de los hilos.
+- **Sincronización: recarga compartida** parte de tres robots que necesitan usar la misma estación. Tras los turnos de recarga, la flota continúa con entregas y reposición.
 
 ## Simular
 
-**Iniciar demostración** crea un hilo por robot y solicita automáticamente una entrega y una reposición con la mercancía disponible. **Pausar** congela movimientos y generación; **Reanudar** prosigue. Para finalizar o cambiar de escenario usa **Inicio**: SIMRA detiene y une los hilos antes de volver a la selección. **Iniciar demostración** crea una ejecución limpia desde el escenario elegido.
+**Iniciar demostración** carga los pedidos del escenario y crea un hilo por robot. El reloj de las demostraciones funciona al 38 % de la velocidad normal. **Pausar** congela el avance y el desplazamiento visual. **Reanudar** continúa desde el mismo punto. **Inicio** detiene y une los hilos antes de volver al selector.
 
-El mapa usa azul para ligero, violeta para pesado, marrón para estantes, ámbar para recarga, verde para entrega y cian para recepción. La vista interpola cada transición confirmada por el motor a 30 FPS, por lo que el desplazamiento es continuo sin inventar posiciones ni alterar la simulación. Los hitos reales aparecen durante seis segundos como una tarjeta flotante sobre el robot implicado: hilo creado, trabajo asignado, recurso adquirido o liberado, espera por mutex, ciclo de espera detectado o recuperado y recarga exclusiva. Selecciona un robot en su tarjeta para ver la ruta disponible en línea discontinua. La pestaña Estadísticas muestra el estado técnico: hilos activos o en espera, buffer de trabajo, recursos exclusivos libres y reservados, conflictos de mutex, ciclos de espera y bloqueos. Cuando todos los pedidos terminan, **Reiniciar demostración** crea una ejecución limpia.
+La vista interpola los movimientos confirmados por el motor a 30 FPS. Los avisos flotantes señalan al robot implicado mediante un contorno y un conector. Duran hasta seis segundos y conservan un mínimo de lectura de aproximadamente 2,5 segundos cuando llegan otros hitos. En Estadísticas, el buffer cuenta los pedidos pendientes de asignar. **Reiniciar demostración** se habilita cuando todos los pedidos terminan y las estaciones quedan libres.

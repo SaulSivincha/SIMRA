@@ -24,6 +24,7 @@ WarehouseView::WarehouseView(QWidget *parent)
   setAlignment(Qt::AlignCenter);
   setTransformationAnchor(QGraphicsView::AnchorViewCenter);
   animationTimer_->setInterval(1000 / 30);
+  animationTimer_->setTimerType(Qt::PreciseTimer);
   connect(animationTimer_, &QTimer::timeout, this,
           [this] { advanceAnimations(); });
   milestoneTimer_->setSingleShot(true);
@@ -31,6 +32,11 @@ WarehouseView::WarehouseView(QWidget *parent)
     delete milestoneModal_;
     milestoneModal_ = nullptr;
     milestoneRobot_.clear();
+    if (pendingMilestone_) {
+      const auto next = std::move(*pendingMilestone_);
+      pendingMilestone_.reset();
+      displayMilestone(next);
+    }
   });
 }
 void WarehouseView::fitMap() {
@@ -55,17 +61,37 @@ void WarehouseView::mousePressEvent(QMouseEvent *event) {
 }
 void WarehouseView::resetAnimation() {
   animationTimer_->stop();
+  milestoneTimer_->stop();
+  delete milestoneModal_;
+  milestoneModal_ = nullptr;
+  pendingMilestone_.reset();
+  pausedAt_.reset();
   motions_.clear();
   mapReady_ = false;
+}
+void WarehouseView::pauseAnimation(bool paused) {
+  const auto now = std::chrono::steady_clock::now();
+  if (paused && !pausedAt_) {
+    pausedAt_ = now;
+    animationTimer_->stop();
+  } else if (!paused && pausedAt_) {
+    for (auto &[id, motion] : motions_)
+      motion.started += now - *pausedAt_;
+    pausedAt_.reset();
+    if (!motions_.empty())
+      animationTimer_->start();
+  }
 }
 void WarehouseView::rebuildMap(const Snapshot &snapshot) {
   animationTimer_->stop();
   milestoneTimer_->stop();
   motions_.clear();
   robotVisuals_.clear();
+  shelfBadges_.clear();
   routeItems_.clear();
   milestoneModal_ = nullptr;
   milestoneRobot_.clear();
+  pendingMilestone_.reset();
   scene_->clear();
   const auto &config = snapshot.scenario;
   width_ = config.width;
@@ -93,16 +119,8 @@ void WarehouseView::rebuildMap(const Snapshot &snapshot) {
                     QPen(QColor("#6B4E32"), 2));
     scene_->addLine(x + 11, y + 32, x + Cell - 11, y + 32,
                     QPen(QColor("#6B4E32"), 2));
-    auto count = std::count_if(snapshot.cargo.begin(), snapshot.cargo.end(),
-                               [&](const auto &cargo) {
-                                 return cargo.locationId == shelf.id;
-                               });
-    if (snapshot.cargo.empty())
-      count = std::count_if(config.cargo.begin(), config.cargo.end(),
-                            [&](const auto &cargo) {
-                              return cargo.locationId == shelf.id;
-                            });
-    auto *badge = scene_->addText(QString::number(count));
+    auto *badge = scene_->addText({});
+    shelfBadges_.emplace(shelf.id, badge);
     badge->setDefaultTextColor(QColor("#FFF7ED"));
     badge->setScale(0.65);
     badge->setPos(x + Cell - 22, y + 4);
@@ -164,8 +182,8 @@ void WarehouseView::updateRoute(const Snapshot &snapshot,
     return;
   const QPen pen(color, 3, Qt::DashLine, Qt::RoundCap);
   if (robotVisuals_.contains(route->robotId)) {
-    const auto visual = displayedPosition(route->robotId,
-                                          std::chrono::steady_clock::now());
+    const auto visual = displayedPosition(
+        route->robotId, pausedAt_.value_or(std::chrono::steady_clock::now()));
     routeItems_.push_back(scene_->addLine(
         visual.x() + Cell / 2, visual.y() + Cell / 2,
         previous.x * Cell + Cell / 2, previous.y * Cell + Cell / 2, pen));
@@ -187,8 +205,7 @@ QPointF WarehouseView::displayedPosition(
                            .count();
   const auto linear =
       std::clamp(double(elapsed) / found->second.durationMs, 0.0, 1.0);
-  const auto eased = linear * linear * (3.0 - 2.0 * linear);
-  return found->second.from + (found->second.to - found->second.from) * eased;
+  return found->second.from + (found->second.to - found->second.from) * linear;
 }
 void WarehouseView::updateRobots(const Snapshot &snapshot,
                                  const std::optional<RouteOverlay> &route) {
@@ -198,8 +215,9 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       robots.push_back({robot.id, "", "", "", robot.position, robot.kind,
                         RobotStatus::Idle, robot.battery,
                         robot.kind == RobotKind::Light ? 100 : 150});
-  const auto now = std::chrono::steady_clock::now();
+  const auto now = pausedAt_.value_or(std::chrono::steady_clock::now());
   for (const auto &robot : robots) {
+    const auto target = QPointF(robot.position.x * Cell, robot.position.y * Cell);
     auto [it, added] = robotVisuals_.try_emplace(robot.id);
     if (added) {
       auto *group = new QGraphicsItemGroup;
@@ -219,16 +237,17 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
       label->setPos(12, 13);
       auto *cargo = new QGraphicsRectItem(Cell - 17, 3, 12, 12, group);
       auto *battery = new QGraphicsRectItem(9, Cell - 8, 0, 4, group);
-      it->second = {group, focus, body, label, cargo, battery};
-      group->setPos(robot.position.x * Cell, robot.position.y * Cell);
+      it->second = {group, focus, body, label, cargo, battery, target};
+      group->setPos(target);
     }
     auto &visual = it->second;
-    const auto target = QPointF(robot.position.x * Cell, robot.position.y * Cell);
-    const auto current = displayedPosition(robot.id, now);
-    if (QLineF(current, target).length() > 0.1) {
+    if (visual.target != target) {
+      const auto current = displayedPosition(robot.id, now);
+      visual.target = target;
       motions_[robot.id] = {current, target, now,
-                            robot.kind == RobotKind::Light ? 380 : 580};
-      animationTimer_->start();
+                            robot.kind == RobotKind::Light ? 760 : 1160};
+      if (!pausedAt_ && !animationTimer_->isActive())
+        animationTimer_->start();
     }
     QColor color = robot.kind == RobotKind::Light ? QColor("#2563EB")
                                                    : QColor("#9333EA");
@@ -270,16 +289,19 @@ void WarehouseView::updateRobots(const Snapshot &snapshot,
 }
 void WarehouseView::advanceAnimations() {
   const auto now = std::chrono::steady_clock::now();
-  bool moving = false;
-  for (const auto &[id, motion] : motions_) {
+  for (auto it = motions_.begin(); it != motions_.end();) {
+    const auto &[id, motion] = *it;
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                              now - motion.started)
                              .count();
     robotVisuals_.at(id).group->setPos(displayedPosition(id, now));
-    moving = moving || elapsed < motion.durationMs;
+    if (elapsed >= motion.durationMs)
+      it = motions_.erase(it);
+    else
+      ++it;
   }
   positionMilestone();
-  if (!moving)
+  if (motions_.empty())
     animationTimer_->stop();
 }
 void WarehouseView::positionMilestone() {
@@ -287,6 +309,8 @@ void WarehouseView::positionMilestone() {
     return;
   const auto robot = robotVisuals_.find(milestoneRobot_);
   if (robot == robotVisuals_.end()) {
+    milestoneFocus_->hide();
+    milestonePointer_->hide();
     milestoneModal_->setPos((scene_->width() - milestoneSize_.width()) / 2, 8);
     return;
   }
@@ -296,18 +320,45 @@ void WarehouseView::positionMilestone() {
   const auto above = position.y() - milestoneSize_.height() - 10;
   const auto y = above >= 4.0 ? above : position.y() + Cell + 10.0;
   milestoneModal_->setPos(x, y);
+  const auto localRobot = position - milestoneModal_->pos();
+  milestoneFocus_->setPos(localRobot);
+  const auto centerX = localRobot.x() + Cell / 2;
+  const auto edgeX = std::clamp(centerX, 10.0, milestoneSize_.width() - 10.0);
+  const bool cardAbove = above >= 4.0;
+  milestonePointer_->setLine(edgeX, cardAbove ? milestoneSize_.height() : 0.0,
+                             centerX, localRobot.y() + (cardAbove ? 1 : Cell - 1));
+  milestoneFocus_->show();
+  milestonePointer_->show();
 }
 void WarehouseView::showMilestone(const QString &title, const QString &detail,
                                   const QColor &accent,
-                                  const std::string &robotId) {
-  delete milestoneModal_;
+                                  const std::string &robotId, int priority) {
+  const Milestone next{title, detail, accent, robotId, priority};
+  if (!milestoneModal_) {
+    displayMilestone(next);
+    return;
+  }
+  if (!pendingMilestone_ || priority >= pendingMilestone_->priority)
+    pendingMilestone_ = next;
+  // Give the current message time to be read, then show the most relevant
+  // recent event. Avoid building a queue of stale map notifications.
+  constexpr int fullDuration = 6000;
+  constexpr int minimumReadingTime = 2500;
+  const int remaining = milestoneTimer_->remainingTime();
+  if (remaining > fullDuration - minimumReadingTime)
+    milestoneTimer_->start(remaining - (fullDuration - minimumReadingTime));
+  else if (milestoneTimer_->interval() == fullDuration)
+    milestoneTimer_->start(0);
+}
+void WarehouseView::displayMilestone(const Milestone &milestone) {
   milestoneModal_ = new QGraphicsItemGroup;
   milestoneModal_->setZValue(30);
   scene_->addItem(milestoneModal_);
   auto *text = new QGraphicsTextItem(milestoneModal_);
   text->setDefaultTextColor(QColor("#F8FAFC"));
   text->setTextWidth(230);
-  text->setHtml("<b>" + title + "</b><br>" + detail);
+  text->setHtml("<b>" + milestone.title.toHtmlEscaped() + "</b><br>" +
+                milestone.detail.toHtmlEscaped());
   text->setPos(10, 7);
   milestoneSize_ = {250, text->boundingRect().height() + 14};
   auto *bubble = new QGraphicsPathItem(milestoneModal_);
@@ -315,10 +366,16 @@ void WarehouseView::showMilestone(const QString &title, const QString &detail,
   shape.addRoundedRect(0, 0, milestoneSize_.width(), milestoneSize_.height(),
                        8, 8);
   bubble->setPath(shape);
-  bubble->setPen(QPen(accent, 2));
+  bubble->setPen(QPen(milestone.accent, 2));
   bubble->setBrush(QBrush(QColor("#0F172A")));
   bubble->setZValue(-1);
-  milestoneRobot_ = robotId;
+  milestoneFocus_ =
+      new QGraphicsEllipseItem(1, 1, Cell - 2, Cell - 2, milestoneModal_);
+  const QPen accentPen(milestone.accent, 2);
+  milestoneFocus_->setPen(accentPen);
+  milestonePointer_ = new QGraphicsLineItem(milestoneModal_);
+  milestonePointer_->setPen(accentPen);
+  milestoneRobot_ = milestone.robotId;
   positionMilestone();
   milestoneTimer_->start(6000);
 }
@@ -329,6 +386,16 @@ void WarehouseView::render(const Snapshot &snapshot,
                                  height_ != snapshot.scenario.height;
   if (!mapReady_ || !runtimeSnapshot || dimensionsChanged)
     rebuildMap(snapshot);
+  for (const auto &[id, badge] : shelfBadges_) {
+    const auto atShelf = [&](const auto &cargo) { return cargo.locationId == id; };
+    const auto count = runtimeSnapshot
+                           ? std::count_if(snapshot.cargo.begin(), snapshot.cargo.end(), atShelf)
+                           : std::count_if(snapshot.scenario.cargo.begin(),
+                                           snapshot.scenario.cargo.end(), atShelf);
+    const auto label = QString::number(count);
+    if (badge->toPlainText() != label)
+      badge->setPlainText(label);
+  }
   updateRoute(snapshot, route);
   updateRobots(snapshot, route);
   positionMilestone();

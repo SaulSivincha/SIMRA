@@ -77,10 +77,26 @@ bool travel(WarehouseState &state, const std::string &id, Position destination,
 }
 
 bool leaveStation(WarehouseState &state, const std::string &id, Position cell) {
-  while (state.waitStep(std::chrono::milliseconds(state.stepMs(id)))) {
-    for (auto delta : directions)
-      if (state.move(id, cell + delta))
-        return true;
+  const auto interval = std::chrono::milliseconds(state.stepMs(id));
+  auto position = cell;
+  while (state.waitStep(interval)) {
+    bool moved = false;
+    for (auto delta : directions) {
+      const auto next = position + delta;
+      if (distance(next, cell) <= distance(position, cell) ||
+          !state.move(id, next))
+        continue;
+      position = next;
+      moved = true;
+      break;
+    }
+    // Free the station and its approaches before parking the worker.
+    if (distance(position, cell) == 2)
+      return true;
+    if (moved)
+      continue;
+    if (position != cell)
+      return true;
     waitForResource(state);
   }
   return false;
@@ -175,8 +191,6 @@ void RobotWorker::operator()() {
     }
     state.setRobotStatus(id, RobotStatus::Idle);
     if (auto order = state.assign(id)) {
-      SimulationLogger::instance().log(EventKind::OrderAssigned,
-                                       "pedido asignado: " + *order, id);
       if (!executeOrder(state, id, *order))
         break;
     } else {

@@ -1,4 +1,5 @@
 #include "simra/window.hpp"
+#include "simra/demo_program.hpp"
 #include "simra/scenario_hub.hpp"
 #include <QHBoxLayout>
 #include <QLabel>
@@ -84,11 +85,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   root->addLayout(buttonRow);
   start_ = new QPushButton("Iniciar demostración", workspace_);
   buttonRow->addWidget(start_);
-  connect(start_, &QPushButton::clicked, this, [this] {
-    startSimulation();
-    if (engine_)
-      addSampleOrders();
-  });
+  connect(start_, &QPushButton::clicked, this, &MainWindow::startSimulation);
   start_->setObjectName("startSimulation");
   pause_ = new QPushButton("Pausar", workspace_);
   buttonRow->addWidget(pause_);
@@ -97,6 +94,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
       return;
     bool paused = engine_->state().snapshot().paused;
     engine_->pause(!paused);
+    view_->pauseAnimation(!paused);
     pause_->setText(paused ? "Pausar" : "Reanudar");
     status_->setText(paused ? "Simulación en ejecución" : "Simulación pausada");
   });
@@ -137,7 +135,6 @@ void MainWindow::loadPreset() {
     engine_.reset();
     selectedRobot_.clear();
     scenario_ = std::move(candidate);
-    nextOrder_ = 1;
     render(Snapshot{scenario_});
     scenarioName_->setText("Escenario · " + scenarioTitle(scenarioIndex_));
     status_->setText("Escenario preparado");
@@ -155,10 +152,10 @@ void MainWindow::startSimulation() {
   }
   try {
     scenario_.validate();
-    nextOrder_ = 1;
     view_->resetAnimation();
     engine_ = std::make_unique<SimulationEngine>(scenario_);
-    engine_->state().setSpeedPercent(100);
+    loadDemoOrders(engine_->state(), scenario_.name);
+    engine_->state().setSpeedPercent(demoSpeedPercent);
     engine_->start(false);
     start_->setEnabled(false);
     start_->setText("Demostración en curso");
@@ -184,86 +181,6 @@ void MainWindow::stopSimulation() {
 void MainWindow::startDemo() {
   pages_->setCurrentWidget(workspace_);
   startSimulation();
-  if (engine_)
-    addSampleOrders();
-}
-void MainWindow::addSampleOrders() {
-  auto snapshot = engine_->state().snapshot();
-  auto cargo = snapshot.cargo;
-  std::sort(cargo.begin(), cargo.end(),
-            [](const auto &first, const auto &second) {
-              return first.weight > second.weight;
-            });
-  if (scenarioIndex_ == 2) {
-    const auto delivery = std::find_if(
-        snapshot.scenario.stations.begin(), snapshot.scenario.stations.end(),
-        [](const auto &station) { return station.kind == Terrain::Delivery; });
-    int accepted = 0;
-    if (delivery != snapshot.scenario.stations.end())
-      for (const auto &item : cargo) {
-        const auto stock = std::find_if(
-            snapshot.scenario.shelves.begin(), snapshot.scenario.shelves.end(),
-            [&](const auto &shelf) { return shelf.id == item.locationId; });
-        if (stock == snapshot.scenario.shelves.end())
-          continue;
-        if (engine_->state().addOrder(DeliveryOrderCreator().create(
-                "O" + std::to_string(nextOrder_++), item.id, delivery->id, 2)))
-          ++accepted;
-        if (accepted == int(snapshot.scenario.robots.size()))
-          break;
-      }
-    status_->setText(
-        QString("%1 pedidos para evidenciar el mutex").arg(accepted));
-    return;
-  }
-  int accepted = 0;
-  for (const auto &item : cargo) {
-    auto stock = std::find_if(
-        snapshot.scenario.shelves.begin(), snapshot.scenario.shelves.end(),
-        [&](const auto &shelf) { return shelf.id == item.locationId; });
-    if (stock == snapshot.scenario.shelves.end())
-      continue;
-    auto station = std::find_if(
-        snapshot.scenario.stations.begin(), snapshot.scenario.stations.end(),
-        [](const auto &point) { return point.kind == Terrain::Delivery; });
-    if (station == snapshot.scenario.stations.end())
-      break;
-    if (engine_->state().addOrder(DeliveryOrderCreator().create(
-            "O" + std::to_string(nextOrder_++), item.id, station->id, 2))) {
-      ++accepted;
-      break;
-    }
-  }
-  bool restockAccepted = false;
-  for (const auto &item : cargo) {
-    const auto atReception =
-        std::any_of(snapshot.scenario.stations.begin(),
-                    snapshot.scenario.stations.end(), [&](const auto &station) {
-                      return station.id == item.locationId &&
-                             station.kind == Terrain::Reception;
-                    });
-    if (!atReception)
-      continue;
-    for (const auto &shelf : snapshot.scenario.shelves) {
-      const auto used =
-          std::count_if(cargo.begin(), cargo.end(), [&](const auto &other) {
-            return other.locationId == shelf.id;
-          });
-      if (used >= shelf.capacity)
-        continue;
-      if (engine_->state().addOrder(RestockOrderCreator().create(
-              "O" + std::to_string(nextOrder_++), item.id, shelf.id, 1))) {
-        ++accepted;
-        restockAccepted = true;
-        break;
-      }
-    }
-    if (restockAccepted)
-      break;
-  }
-  status_->setText(
-      accepted ? QString("%1 pedidos de ejemplo admitidos").arg(accepted)
-               : "No hay mercancía disponible para el ejemplo");
 }
 void MainWindow::showStatistics() { rightTabs_->setCurrentWidget(metrics_); }
 void MainWindow::refresh() {
@@ -317,10 +234,9 @@ void MainWindow::render(const Snapshot &s) {
   const bool completed = !s.orders.empty() &&
                          std::all_of(s.orders.begin(), s.orders.end(),
                                      [](const auto &order) {
-                                       return order.status == OrderStatus::Completed ||
-                                              order.status == OrderStatus::Blocked;
+                                       return order.status == OrderStatus::Completed;
                                      });
-  if (completed && !start_->isEnabled()) {
+  if (completed && s.stationReservations.empty() && !start_->isEnabled()) {
     start_->setEnabled(true);
     start_->setText("Reiniciar demostración");
     pause_->setEnabled(false);
@@ -334,38 +250,39 @@ void MainWindow::showMilestone(const Event &event) {
                          : QString::fromStdString(event.robotId);
   const auto detail = actor + " · " + QString::fromStdString(event.text);
   auto show = [this, &detail, &event](const QString &title,
-                                      const QColor &accent) {
-    view_->showMilestone(title, detail, accent, event.robotId);
+                                      const QColor &accent, int priority = 1) {
+    view_->showMilestone(title, detail, accent, event.robotId, priority);
   };
   switch (event.kind) {
   case EventKind::ThreadStarted:
-    show("HILO CREADO", QColor("#38BDF8"));
+    if (scenarioIndex_ == 0)
+      show("HILO CREADO", QColor("#38BDF8"));
     break;
   case EventKind::OrderAssigned:
     show(scenarioIndex_ == 1 ? "POLIMORFISMO EN ACCIÓN"
                               : "TRABAJO ASIGNADO",
-         QColor("#60A5FA"));
+         QColor("#60A5FA"), scenarioIndex_ == 1 ? 3 : 1);
     break;
   case EventKind::ResourceAcquired:
-    show("RECURSO ADQUIRIDO", QColor("#2DD4BF"));
+    show("RECURSO ADQUIRIDO", QColor("#2DD4BF"), 2);
     break;
   case EventKind::ResourceReleased:
-    show("RECURSO LIBERADO", QColor("#34D399"));
+    show("RECURSO LIBERADO", QColor("#34D399"), 2);
     break;
   case EventKind::MutexWait:
-    show("MUTEX: ESPERA CONTROLADA", QColor("#F59E0B"));
+    show("ESPERA POR UN RECURSO", QColor("#F59E0B"), 2);
     break;
   case EventKind::WaitCycleDetected:
-    show("CICLO DE ESPERA DETECTADO", QColor("#FB7185"));
+    show("CICLO DE ESPERA DETECTADO", QColor("#FB7185"), 4);
     break;
   case EventKind::WaitCycleRecovered:
-    show("CICLO DE ESPERA RECUPERADO", QColor("#FBBF24"));
+    show("CICLO DE ESPERA RECUPERADO", QColor("#FBBF24"), 3);
     break;
   case EventKind::ChargingStarted:
-    show("SECCIÓN CRÍTICA DE RECARGA", QColor("#2DD4BF"));
+    show("USO EXCLUSIVO DEL CARGADOR", QColor("#2DD4BF"), 3);
     break;
   case EventKind::ChargingCompleted:
-    show("RECARGA COMPLETADA", QColor("#34D399"));
+    show("RECARGA COMPLETADA", QColor("#34D399"), 2);
     break;
   case EventKind::Generic:
     return;

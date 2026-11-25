@@ -217,6 +217,11 @@ std::optional<std::string> WarehouseState::assign(const std::string &robotId) {
     r.orderId = o->id;
     r.view.status = RobotStatus::ToPickup;
     changedLocked();
+    SimulationLogger::instance().log(
+        EventKind::OrderAssigned,
+        o->id + " · " + std::to_string(c.view.weight) + " kg · capacidad " +
+            std::to_string(r.type->capacity()) + " kg",
+        robotId);
     return o->id;
   }
   return {};
@@ -581,8 +586,7 @@ void WarehouseState::tickClockLocked() const {
   lastTick_ = now;
 }
 void WarehouseState::setSpeedPercent(int percent) {
-  if (percent != 25 && percent != 50 && percent != 100 && percent != 200 &&
-      percent != 400)
+  if (percent < 25 || percent > 400)
     throw std::invalid_argument("invalid speed");
   std::lock_guard lock(mutex_);
   tickClockLocked();

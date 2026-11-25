@@ -25,7 +25,6 @@ class MainWindow final : public QMainWindow {
   ScenarioHub *hub_{};
   QPushButton *start_{}, *pause_{};
   int scenarioIndex_{};
-  int nextOrder_{1};
   std::string selectedRobot_;
   void render(const Snapshot &);
   void showMilestone(const Event &);
@@ -33,7 +32,6 @@ class MainWindow final : public QMainWindow {
   void loadPreset();
   void startSimulation();
   void stopSimulation();
-  void addSampleOrders();
 
 public:
   explicit MainWindow(QWidget *parent = nullptr);

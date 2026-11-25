@@ -36,8 +36,7 @@ StatisticsPanel::StatisticsPanel(QWidget *parent) : QWidget(parent) {
 void StatisticsPanel::render(const Snapshot &snapshot) {
   int buffer = 0, active = 0, waiting = 0, blocked = 0;
   for (auto &order : snapshot.orders) {
-    buffer += order.status != OrderStatus::Completed &&
-              order.status != OrderStatus::Blocked;
+    buffer += order.status == OrderStatus::Pending;
   }
   for (auto &robot : snapshot.robots) {
     active += !robot.threadId.empty() && robot.status != RobotStatus::Stopped;

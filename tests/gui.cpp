@@ -1,10 +1,13 @@
 #include "check.hpp"
 #include "simra/window.hpp"
 #include <QApplication>
+#include <QGraphicsItemGroup>
+#include <QGraphicsScene>
 #include <QLabel>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QTest>
+#include <cmath>
 
 int main(int argc, char **argv) {
   QApplication app(argc, argv);
@@ -49,13 +52,30 @@ int main(int argc, char **argv) {
   CHECK(panels->tabText(0) == "Robots");
   CHECK(panels->tabText(1) == "Estadísticas");
   CHECK(window.findChild<QWidget *>("technicalStats"));
+  QGraphicsItem *movingRobot = nullptr;
+  CHECK(QTest::qWaitFor([&] {
+    for (auto *item : map->scene()->items()) {
+      if (item->type() != QGraphicsItemGroup::Type || item->zValue() != 10)
+        continue;
+      const auto position = item->pos();
+      if (position.x() != std::floor(position.x()) ||
+          position.y() != std::floor(position.y())) {
+        movingRobot = item;
+        return true;
+      }
+    }
+    return false;
+  }, 4000));
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Reanudar");
+  const auto pausedPosition = movingRobot->pos();
+  QTest::qWait(150);
+  CHECK(movingRobot->pos() == pausedPosition);
   QTest::mouseClick(pause, Qt::LeftButton);
   CHECK(pause->text() == "Pausar");
   CHECK(QTest::qWaitFor(
       [&] { return start->isEnabled() && start->text() == "Reiniciar demostración"; },
-      12000));
+      55000));
   QTest::mouseClick(start, Qt::LeftButton);
   CHECK(!start->isEnabled());
   auto *home = button("homeScreen");
